@@ -53,8 +53,8 @@ response = openai.chat.completions.create(
       ],
     }
   ],
-  max_tokens=15,
+  max_tokens=15,n=4
+
 )
-
-
-print(response.choices[0].message.content)
+for i in range(0,4):
+    print(response.choices[i].message.content)

@@ -46,4 +46,28 @@ class Hrac:
         """podiva se na vsechny karty 'na stole' a porovna je se zdanim"""
         ...
 
-# print(Karta.nacti_karty("obrazky.json")[0].path)
+print(Karta.nacti_karty("obrazky.json")[0].path)
+
+prompt = "Na základě zadaného obrázku vytvoř abstraktní pojem vystihující atmosféru a koncept obrázku, vyhni se popisu detailů. Vypis mi pouze tento pojem a to ve formatu:'pojem'"
+response = openai.chat.completions.create(
+  model="gpt-4o-mini",
+  messages=[
+    {
+      "role": "user",
+      "content": [
+        {"type": "text", "text": prompt},
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": f"data:image/png;base64,{Karta.nacti_karty("obrazky.json")[0].zakodovany_obrazek}",
+          },
+        },
+      ],
+    }
+  ],
+  max_tokens=50, n=4
+)
+
+
+for i in range(0,4):
+    print(response.choices[i].message.content)
