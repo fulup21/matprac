@@ -19,7 +19,7 @@ def ziskat_base64_pro_klic(soubor_json: str, klic: int) -> Any:
         if klic < len(obrazky)+1:
             try:
                 base_64 = obrazky[klic-1]['base64']
-                return(base_64)
+                return base_64
             except:
                 # index nenalezen
                 return ""
@@ -32,9 +32,9 @@ if base64_data == "":
     print("Base64 nenalezen")
     exit(1)
 
-prompt = "Jsi umelec, ktery poeticky popisuje obrazek.Snaz ze naznacit co je na obrazku ale nepopsat to doslovne. Rekni mi co je na tomto obrázku?"
-prompt = "Co je na obrazku?"
-prompt = "Jsi 18tileta holka, ktera ma umelecke citeni s romantickou dusi. Popis Co je na obrazku"
+#prompt = "Jsi umelec, ktery poeticky popisuje obrazek.Snaz ze naznacit co je na obrazku ale nepopsat to doslovne. Rekni mi co je na tomto obrázku?"
+#prompt = "Co je na obrazku?"
+#prompt = "Jsi 18tileta holka, ktera ma umelecke citeni s romantickou dusi. Popis Co je na obrazku"
 prompt = "Jsi 18tileta holka, ktera ma umelecke citeni s romantickou dusi. Popis Co je na obrazku bez toho aby si presne rekla co obrazek obzahuje, ale jen naznacila aby slo hadat co na obrazku skutecne je"
 
 response = openai.chat.completions.create(
@@ -53,7 +53,7 @@ response = openai.chat.completions.create(
       ],
     }
   ],
-  max_tokens=300,
+  max_tokens=15,
 )
 
 
