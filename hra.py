@@ -12,7 +12,7 @@ openai.api_key=mujklic
 @dataclass
 class Karta:
     """jedna karta s obrazkem"""
-    key:str
+    key:int
     path:str
     zakodovany_obrazek:str
 
@@ -87,6 +87,7 @@ spravce.nacti_karty("obrazky.json")
 #
 # for i in range(0,4):
 #     print(response.choices[i].message.content)
+
 def vytvor_popis(klic_karty:int)-> list[str]:
     """vytvori popis pro jednu karty na zaklade klice"""
     prompt = "Na základě zadaného obrázku vytvoř abstraktní pojem vystihující atmosféru a koncept obrázku, vyhni se popisu detailů. Vypiš mi pouze tento pojem a to ve formatu:'pojem'"
@@ -115,4 +116,56 @@ def vytvor_popis(klic_karty:int)-> list[str]:
         seznam.append(response.choices[i].message.content)
     return seznam
 
-print(vytvor_popis(6))
+def vyber_obrazek(vylozene_karty:list[Karta], popis)->list[str]:
+    prompt = f"Na základě zadaných obrázků vyber ten, ktery nejlepe sedi zadanemu popisu:{popis}. Napis mi pouze cislo karty ve formatu:'1'"
+    seznam: list[str] = []
+
+
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages= [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": prompt,
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": f"data:image/png;base64,{vylozene_karty[0].zakodovany_obrazek}"          },
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": f"data:image/png;base64,{vylozene_karty[1].zakodovany_obrazek}",          },
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+            "url": f"data:image/png;base64,{vylozene_karty[2].zakodovany_obrazek}",              },
+        },
+        {
+          "type": "image_url",
+          "image_url": {
+              "url": f"data:image/png;base64,{vylozene_karty[3].zakodovany_obrazek}",
+        },
+        },
+      ],
+    }
+  ],
+        max_tokens=300,
+        n=4
+    )
+    for i in range(0, 4):
+        seznam.append(response.choices[i].message.content)
+    return seznam
+
+
+list_s_kartami = [spravce.najdi_kartu(1),spravce.najdi_kartu(2),spravce.najdi_kartu(3),spravce.najdi_kartu(6)]
+
+print(vyber_obrazek(list_s_kartami,"starec"))
+
+#print(vytvor_popis(6))
+
