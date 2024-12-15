@@ -116,9 +116,9 @@ def vytvor_popis(klic_karty:int)-> list[str]:
         seznam.append(response.choices[i].message.content)
     return seznam
 
-def vyber_obrazek(vylozene_karty:list[Karta], popis)->list[str]:
-    prompt = f"Na základě zadaných obrázků vyber ten, ktery nejlepe sedi zadanemu popisu:{popis}. Napis mi pouze cislo karty ve formatu:'1'"
-    seznam: list[str] = []
+def vyber_obrazek(vylozene_karty:list[Karta], popis)->Karta:
+    prompt = f"Na základě zadaných obrázků vyber ten, ktery nejlepe sedi zadanemu popisu:{popis}. Napis mi pouze cislo karty ve formatu:1"
+    #seznam: list[str] = []
 
     odpoved = [{
           "type": "text",
@@ -139,16 +139,20 @@ def vyber_obrazek(vylozene_karty:list[Karta], popis)->list[str]:
     }
   ],
         max_tokens=300,
-        n=4
+        n=1
     )
-    for i in range(0, 4):
-        seznam.append(response.choices[i].message.content)
-    return seznam
+    # for i in range(0, len(response.choices)):
+    #     seznam.append(int(response.choices[i].message.content))
+    return vylozene_karty[int(response.choices[0].message.content)-1]
 
 
 list_s_kartami = [spravce.najdi_kartu(1),spravce.najdi_kartu(2),spravce.najdi_kartu(3),spravce.najdi_kartu(6)]
 
+# nalezen_index = vyber_obrazek(list_s_kartami,"starec")
 print(vyber_obrazek(list_s_kartami,"starec"))
+# print("nalezena karta:")
+
+# print(list_s_kartami[nalezen_index-1])
 
 #print(vytvor_popis(6))
 
