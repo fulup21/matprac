@@ -17,25 +17,33 @@ class Karta:
     zakodovany_obrazek:str
 
 class SpravceKaret:
+    seznam_karet: dict = {}
+    def __init__(self, soubor_json:str):
+        """seznam, kam posleme vsechny karty"""
 
-    """seznam, kam posleme vsechny karty"""
-    seznam_karet: list[Karta] = []
 
-    @staticmethod
-    def nacti_karty(soubor_json:str)-> list["Karta"]:
-        """nacte vsechny karty z json souboru, vytvori jejich instanci a ulozi do seznamu"""
-        if not SpravceKaret.seznam_karet:
-            with open(soubor_json, "r", encoding="utf-8") as s:
-                karty = json.load(s)
-                for data_karty in karty:
-                    karta = Karta(key=data_karty.get("key"),path=data_karty.get("path"),zakodovany_obrazek=data_karty.get("base64"))
-                    SpravceKaret.seznam_karet.append(karta)
-            return SpravceKaret.seznam_karet
+        with open(soubor_json, "r", encoding="utf-8") as s:
+            karty = json.load(s)
+            for data_karty in karty:
+                karta = Karta(key=data_karty.get("key"),path=data_karty.get("path"),zakodovany_obrazek=data_karty.get("base64"))
+                self.seznam_karet[karta.key] = karta
 
-    @staticmethod
-    def najdi_kartu(klic:int)-> Karta:
+
+    # @staticmethod
+    # def nacti_karty(soubor_json:str)-> list["Karta"]:
+    #     """nacte vsechny karty z json souboru, vytvori jejich instanci a ulozi do seznamu"""
+    #     if not SpravceKaret.seznam_karet:
+    #         with open(soubor_json, "r", encoding="utf-8") as s:
+    #             karty = json.load(s)
+    #             for data_karty in karty:
+    #                 karta = Karta(key=data_karty.get("key"),path=data_karty.get("path"),zakodovany_obrazek=data_karty.get("base64"))
+    #                 SpravceKaret.seznam_karet.append(karta)
+    #         return SpravceKaret.seznam_karet
+
+
+    def najdi_kartu(self, klic:int)-> Karta:
         """najde kartu podle klice"""
-        for karta in SpravceKaret.seznam_karet:
+        for karta in self.seznam_karet:
             if karta.key == klic:
                 return karta
         raise ValueError(f"Karta s klicem: {klic} nebyla nalezena")
@@ -58,35 +66,8 @@ class Hrac:
     def vyber_kartu(self, popis:str, vylozene_karty:list[Karta])->Karta:
         """podiva se na vsechny karty 'na stole' a porovna je se zdanim"""
         ...
-spravce = SpravceKaret
-spravce.nacti_karty("obrazky.json")
+spravce = SpravceKaret("obrazky.json")
 
-# print(spravce.najdi_kartu(5).path)
-# print(SpravceKaret.najdi_kartu(1).path)
-
-# prompt = "Na základě zadaného obrázku vytvoř abstraktní pojem vystihující atmosféru a koncept obrázku, vyhni se popisu detailů. Vypiš mi pouze tento pojem a to ve formatu:'pojem'"
-# response = openai.chat.completions.create(
-#   model="gpt-4o-mini",
-#   messages=[
-#     {
-#       "role": "user",
-#       "content": [
-#         {"type": "text", "text": prompt},
-#         {
-#           "type": "image_url",
-#           "image_url": {
-#             "url": f"data:image/png;base64,{Karta.nacti_karty("obrazky.json")[0].zakodovany_obrazek}",
-#           },
-#         },
-#       ],
-#     }
-#   ],
-#   max_tokens=50, n=4
-# )
-#
-#
-# for i in range(0,4):
-#     print(response.choices[i].message.content)
 
 def vytvor_popis(klic_karty:int)-> list[str]:
     """vytvori popis pro jednu karty na zaklade klice"""
