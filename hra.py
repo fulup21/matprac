@@ -107,7 +107,7 @@ def vytvor_popis(klic_karty:int)-> list[str]:
           ],
         }
       ],
-      max_tokens=50, n=4
+      max_tokens=50, n=4, temperature= 1
     )
 
     seznam:list[str]=[]
