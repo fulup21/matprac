@@ -1,20 +1,15 @@
-from abstrakt_hrac import AbstraktHrac
+from abstrakt_hrac import AbstraktHrac, Karta
 
 from sk import mujklic
 import openai
 import json
 # from typing import Any
-from dataclasses import dataclass
+
 
 
 openai.api_key=mujklic
 
-@dataclass
-class Karta:
-    """jedna karta s obrazkem"""
-    key:int
-    path:str
-    zakodovany_obrazek:str
+
 
 class SpravceKaret:
     seznam_karet: dict = {}
@@ -102,7 +97,8 @@ class Hrac(AbstraktHrac):
                 }
             ],
             max_tokens=300,
-            n=1
+            n=1,
+            temperature= self.teplota
         )
         # for i in range(0, len(response.choices)):
         #     seznam.append(int(response.choices[i].message.content))
@@ -169,8 +165,8 @@ spravce = SpravceKaret("obrazky.json")
 #     return vylozene_karty[int(response.choices[0].message.content)-1]
 
 
-list_s_kartami = [spravce.najdi_kartu(1),spravce.najdi_kartu(2),spravce.najdi_kartu(3),spravce.najdi_kartu(6)]
+list_s_kartami = [spravce.najdi_kartu(20),spravce.najdi_kartu(4),spravce.najdi_kartu(17),spravce.najdi_kartu(9)]
 
-h = Hrac()
+h = Hrac(teplota= 2)
 k = spravce.najdi_kartu(13)
-print(h.udelej_popis(k))
+print(h.vyber_kartu("maly princ", list_s_kartami).key)
