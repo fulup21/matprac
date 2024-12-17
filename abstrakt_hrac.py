@@ -1,9 +1,10 @@
 from abc import abstractmethod,ABC
 from dataclasses import dataclass
 
+from pydantic import BaseModel
 
-@dataclass
-class Karta:
+
+class Karta(BaseModel):
     """jedna karta s obrazkem"""
     key:int
     path:str
