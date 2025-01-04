@@ -7,7 +7,7 @@ class Karta(BaseModel):
     """jedna karta s obrazkem"""
     key:int
     path:str
-    zakodovany_obrazek:str
+    zakodovany_obrazek: str
 
 
 class AbstraktHrac(ABC):
@@ -16,14 +16,15 @@ class AbstraktHrac(ABC):
     skore: int = 0
 
     @abstractmethod
-    def __init__(self, povaha: str|None, teplota:float|None )->None:
+    def __init__(self, jmeno:str, povaha: str|None, teplota:float|None)->None:
         """zde se nastavi jak se bude hrac chovat"""
         self.povaha = povaha
         self.teplota = teplota
+        self.jmeno = jmeno
         ...
 
     @abstractmethod
-    def seber_kartu(self, karta:Karta.key) -> None:
+    def seber_kartu(self, karta:Karta) -> None:
         """prirad kartu do ruky"""
         ...
 
