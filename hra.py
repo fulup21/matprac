@@ -1,3 +1,5 @@
+from random import random, shuffle
+
 from abstrakt_hrac import AbstraktHrac, Karta
 
 from sk import mujklic
@@ -12,7 +14,7 @@ openai.api_key=mujklic
 
 
 class SpravceKaret:
-    seznam_karet: dict = {}
+    mapa_karet: dict[int,Karta]= {}
     def __init__(self, soubor_json:str):
         """seznam, kam posleme vsechny karty"""
 
@@ -21,7 +23,7 @@ class SpravceKaret:
             karty = json.load(s)
             for data_karty in karty:
                 karta = Karta(key=data_karty.get("key"),path=data_karty.get("path"),zakodovany_obrazek=data_karty.get("base64"))
-                self.seznam_karet[karta.key] = karta
+                self.mapa_karet[karta.key] = karta
 
 
     # @staticmethod
@@ -38,16 +40,22 @@ class SpravceKaret:
 
     def najdi_kartu(self, klic:int)-> Karta:
         """najde kartu podle klice"""
-        try: return self.seznam_karet[klic]
+        try: return self.mapa_karet[klic]
         except KeyError:
             raise ValueError(f"Karta s klicem: {klic} nebyla nalezena")
 
 class Hrac(AbstraktHrac):
     """jednotlivi Chatgpt hraci"""
+    karty_ruka: list[Karta] = []
+    skore = 0
+
     def __init__(self, povaha: str = None, teplota:float = None )->None:
         """zde se nastavi jak se bude hrac chovat"""
         self.povaha = povaha
         self.teplota = teplota
+
+    def seber_kartu(self, karta: Karta.key) -> None:
+        self.karty_ruka.append(karta)
 
     def udelej_popis(self, karta:Karta)->str:
         prompt = """Na základě zadaného obrázku vytvoř abstraktní pojem 
@@ -56,6 +64,10 @@ class Hrac(AbstraktHrac):
         response = openai.chat.completions.create(
           model="gpt-4o-mini",
           messages=[
+            {
+             "role": "developer",
+             "content": f" jsi asistent, který odpovídá na dotazy v roli {self.povaha}"
+            },
             {
               "role": "user",
               "content": [
@@ -69,7 +81,7 @@ class Hrac(AbstraktHrac):
               ],
             }
           ],
-          max_tokens=50, n=1, temperature= 1
+          max_tokens=50, n=1, temperature= self.teplota
         )
         return response.choices[0].message.content
 
@@ -92,6 +104,10 @@ class Hrac(AbstraktHrac):
             model="gpt-4o-mini",
             messages=[
                 {
+                    "role": "developer",
+                    "content": f" jsi asistent, který odpovídá na dotazy v roli {self.povaha}"
+                },
+                {
                     "role": "user",
                     "content": odpoved,
                 }
@@ -103,6 +119,9 @@ class Hrac(AbstraktHrac):
         # for i in range(0, len(response.choices)):
         #     seznam.append(int(response.choices[i].message.content))
         return vylozene_karty[int(response.choices[0].message.content) - 1]
+    def skoruj(self, cislo) -> None:
+        self.skore += 1
+
 
 spravce = SpravceKaret("obrazky.json")
 
@@ -165,8 +184,64 @@ spravce = SpravceKaret("obrazky.json")
 #     return vylozene_karty[int(response.choices[0].message.content)-1]
 
 
-list_s_kartami = [spravce.najdi_kartu(20),spravce.najdi_kartu(4),spravce.najdi_kartu(17),spravce.najdi_kartu(9)]
+#list_s_kartami = [spravce.najdi_kartu(16), spravce.najdi_kartu(17), spravce.najdi_kartu(18),spravce.najdi_kartu(19),spravce.najdi_kartu(20)]
 
-h = Hrac(teplota= 2)
-k = spravce.najdi_kartu(13)
-print(h.vyber_kartu("maly princ", list_s_kartami).key)
+
+# h = Hrac(teplota= 0)
+# k = spravce.najdi_kartu(6)
+# p = h.udelej_popis(k)
+# g = h.vyber_kartu("Heboucke",list_s_kartami).key
+# print(p)
+# for o in SpravceKaret.seznam_karet:
+#     list_s_kartami.append(spravce.najdi_kartu(o))
+# # for i in list_s_kartami:
+# #     print(i.key)
+# print(h.vyber_kartu(p, list_s_kartami).key)
+
+class Hra:
+    """Hra s jednim hrqcim kolem"""
+    hraci:list[Hrac] = [] #seznam hracu ve hre
+    povahy:list[str] = ["intelektuál","farmář","primitiv","učitelka mateřské školky"] #povahy pro hrace
+    karty_na_stole:list[Karta] = [] #karty vylozene na stole
+    karty_v_balicku:list[Karta] = []
+    pocet_kolo = 1
+
+
+    def __init__(self, pocet_hracu):
+        self.pocet_hracu = pocet_hracu
+        for i in range(0,self.pocet_hracu-1):
+            self.hraci.append(Hrac(povaha=self.povahy[i],teplota=random()+0.5))
+
+    def zamichej_karty(self)->None:
+        for item in SpravceKaret.mapa_karet:
+            self.karty_v_balicku.append(SpravceKaret.mapa_karet[item])
+            shuffle(self.karty_v_balicku)
+
+    def rozdej_karty(self):
+        pocitadlo_hracu: int = 0
+        for hrac in self.hraci:
+            for i in range(1,5):
+                hrac.seber_kartu(self.karty_v_balicku[i+pocitadlo_hracu*4-1])
+                print(i+pocitadlo_hracu*4-1) # logger pro samotare
+            pocitadlo_hracu += 1
+
+
+    def tah(self):
+        """Provede jeden tah, ve kterem je jeden hac vypravec, """
+
+
+    def kolo(self):
+
+        if self.pocet_kolo == 1:
+            for hrac in self.hraci:
+
+
+        for hrac in self.hraci:
+            if hrac.skore > 30:
+                self.konec_hry(self.hraci.index(hrac) - 1)
+                return
+
+
+    @staticmethod
+    def konec_hry(cislo)->None:
+        print(f'vyhrava hrac cislo {cislo}')

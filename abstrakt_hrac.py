@@ -1,5 +1,4 @@
 from abc import abstractmethod,ABC
-from dataclasses import dataclass
 
 from pydantic import BaseModel
 
@@ -13,11 +12,19 @@ class Karta(BaseModel):
 
 class AbstraktHrac(ABC):
     """jednotlivi Chatgpt hraci"""
+    karty_ruka:list[Karta]=[]
+    skore: int = 0
+
     @abstractmethod
     def __init__(self, povaha: str|None, teplota:float|None )->None:
         """zde se nastavi jak se bude hrac chovat"""
         self.povaha = povaha
         self.teplota = teplota
+        ...
+
+    @abstractmethod
+    def seber_kartu(self, karta:Karta.key) -> None:
+        """prirad kartu do ruky"""
         ...
 
     @abstractmethod
@@ -28,4 +35,9 @@ class AbstraktHrac(ABC):
     @abstractmethod
     def vyber_kartu(self, popis:str, vylozene_karty:list[Karta])->Karta:
         """podiva se na vsechny karty 'na stole' a porovna je se zdanim"""
+        ...
+
+    @abstractmethod
+    def skoruj(self, cislo) -> None:
+        """prirad kartu do ruky"""
         ...
