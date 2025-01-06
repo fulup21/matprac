@@ -139,6 +139,7 @@ class Hra:
         self.bodovaci_stupnice = [0] * pocet_hracu
         self.karty_v_odhazovaci_hromadce:list[Karta] = []
         self.karty_na_stole:list[tuple[Karta,Hrac]] = []
+        self.pocet_karet_pro_hrace = 6  # Každý hráč dostane 6 karet
         self.pocet_kolo = 1
 
         for i in range(self.pocet_hracu):
@@ -151,14 +152,14 @@ class Hra:
 
     def rozdej_karty(self):
         pocitadlo_hracu: int = 0
-        pocet_karet_pro_hrace = 6  # Každý hráč dostane 6 karet
+
 
         # Ujistíme se, že máme dostatek karet pro všechny hráče
-        if len(self.karty_v_balicku) < self.pocet_hracu * pocet_karet_pro_hrace:
+        if len(self.karty_v_balicku) < self.pocet_hracu * self.pocet_karet_pro_hrace:
             raise ValueError("Není dostatek karet pro všechny hráče!")
 
         for hrac in self.hraci:
-            for i in range(pocet_karet_pro_hrace):
+            for i in range(self.pocet_karet_pro_hrace):
                 # Každému hráči rozdáme unikátní kartu
                 hrac.seber_kartu(self.karty_v_balicku.pop(0))  # Vezmeme kartu z balíčku a přidáme ji hráči
 
@@ -169,9 +170,10 @@ class Hra:
 
     def tah(self, index_vypravece):
         """provede jeden tah, kdy jeden hrac je vybran vypravecem a ostatni hadaji"""
+        print("DALSI TAH!!!!!!!!!!")
         vypravec :Hrac = self.hraci[index_vypravece]
         vypravec_karta :Karta = vypravec.karty_ruka.pop(0)  # vypravec vybere kartu, kterou bude popisovat
-        print(f'Vypravec {vypravec.jmeno} ma kartu {vypravec_karta.key}')
+        print(f'Vypravec je {vypravec.jmeno} a vybira kartu: {vypravec_karta.key}')
         popis :str = vypravec.udelej_popis(vypravec_karta)
         print(f'Popis od vypravece je:{popis}')
 
@@ -192,7 +194,7 @@ class Hra:
 
         shuffle(self.karty_na_stole)
 
-        # Hráči hlasují kromě Vypravěče
+        # Hraci, krome vypravece, hlasuji
         hlasovani = []
         for hrac in self.hraci:
             if hrac != vypravec:
@@ -219,7 +221,19 @@ class Hra:
                     pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
                     hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
 
-        self.karty_v_odhazovaci_hromadce.extend(karta for karta,hrac in self.karty_na_stole)
+        for karta, hrac in self.karty_na_stole: # da
+            self.karty_v_odhazovaci_hromadce.append(karta)
+
+        self.karty_na_stole.clear()
+
+        if len(self.karty_v_balicku) < self.pocet_hracu * self.pocet_karet_pro_hrace:
+            for karta in self.karty_v_odhazovaci_hromadce:
+                self.karty_v_balicku.append(karta)
+            self.karty_v_odhazovaci_hromadce.clear()
+
+        for hrac in self.hraci:
+                # Kazdemu hraci da jednu kartu, (lize si kartu)
+                hrac.seber_kartu(self.karty_v_balicku.pop(0))
 
 
 
@@ -227,7 +241,14 @@ class Hra:
 
 
     def kolo(self):
-        ...
+        """jedno kolo, ve kterem kazdy hrac odehraje tah"""
+
+        if self.pocet_kolo == 1: #pokud je to prvni kolo, rozdej a zamichej karty
+            self.zamichej_karty()
+            self.rozdej_karty()
+
+        for i in range(len(self.hraci)): #kazdy hrac zahraje tah
+            self.tah(i-1)
 
 
     @staticmethod
@@ -237,13 +258,8 @@ class Hra:
 ajmena_hracu = ["Alice", "Bob", "Charlie", "Diana"]
 hra = Hra(pocet_hracu=4, jmena_hracu=ajmena_hracu)
 
-# Zamíchej a rozdej karty před prvním tahem
-hra.zamichej_karty()
-hra.rozdej_karty()
+hra.kolo()
 
-
-# Proveď tah s indexem vypravěče (například první hráč - index 0)
-hra.tah(index_vypravece=0)
 
 # Výpis bodů hráčů po tahu
 for ahrac in hra.hraci:
