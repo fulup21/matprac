@@ -1,29 +1,28 @@
 from random import random, shuffle
-
 from abstrakt_hrac import AbstraktHrac, Karta
-
 from sk import mujklic
 import openai
 import json
-# from typing import Any
 
-
-
-openai.api_key=mujklic
+openai.api_key=mujklic #api klic od openai
 
 
 
 class SpravceKaret:
     mapa_karet: dict[int,Karta]= {}
-    def __init__(self, soubor_json:str):
+    def __init__(self, soubor_json: str):
         """seznam, kam posleme vsechny karty"""
 
 
-        with open(soubor_json, "r", encoding="utf-8") as s:
+        with open(soubor_json, "r", encoding="utf-8") as s: # otevirame json soubor
             karty = json.load(s)
             for data_karty in karty:
-                karta = Karta(key=data_karty.get("key"),path=data_karty.get("path"),zakodovany_obrazek=data_karty.get("zakodovany_obrazek"))
-                self.mapa_karet[karta.key] = karta
+                key = data_karty.get("key")
+                path = data_karty.get("path")
+                zakodovany_obrazek = data_karty.get("zakodovany_obrazek")
+
+                karta = Karta(key=key, path=path, zakodovany_obrazek=zakodovany_obrazek)
+                self.mapa_karet[key] = karta
 
 
     # @staticmethod
@@ -151,25 +150,26 @@ class Hra:
             shuffle(self.karty_v_balicku)
 
     def rozdej_karty(self):
-        pocitadlo_hracu: int = 0
+        #Rozda karty
 
-
-        # Ujistíme se, že máme dostatek karet pro všechny hráče
+        # Ujistime se, ze mame dost karet v balicku
         if len(self.karty_v_balicku) < self.pocet_hracu * self.pocet_karet_pro_hrace:
-            raise ValueError("Není dostatek karet pro všechny hráče!")
+            raise ValueError("Chyba s kartami, neni jich dost")
 
         for hrac in self.hraci:
             for i in range(self.pocet_karet_pro_hrace):
-                # Každému hráči rozdáme unikátní kartu
-                hrac.seber_kartu(self.karty_v_balicku.pop(0))  # Vezmeme kartu z balíčku a přidáme ji hráči
+                # Kazdy hrac dostane svoji kartu
+                hrac.seber_kartu(self.karty_v_balicku.pop(0))  # Vezmeme kartu z balicku a dame ji hraci
 
-                # Mějte logování pro ladění
-                print(f"Hráč {hrac.jmeno} dostal kartu {hrac.karty_ruka[-1].key}")
-            pocitadlo_hracu += 1
+                # Jake karty dostal jaky hrac
+                # print(f"Hráč {hrac.jmeno} dostal kartu {hrac.karty_ruka[-1].key}")
+
 
 
     def tah(self, index_vypravece):
         """provede jeden tah, kdy jeden hrac je vybran vypravecem a ostatni hadaji"""
+
+        self.karty_na_stole.clear() # ujisti, ze tam nic neni
         print("DALSI TAH!!!!!!!!!!")
         vypravec :Hrac = self.hraci[index_vypravece]
         vypravec_karta :Karta = vypravec.karty_ruka.pop(0)  # vypravec vybere kartu, kterou bude popisovat
@@ -183,9 +183,12 @@ class Hra:
             if hrac != vypravec:
 
 
-                print(f'hrac {hrac.jmeno} ma karty:')
+                print(f'hrac {hrac.jmeno} ma karty:') # logovani jake karty kdo ma
+                jake_karty_ma:list[int] = []
                 for k in hrac.karty_ruka:
-                    print(k.key)
+                    jake_karty_ma.append(k.key)
+                print(jake_karty_ma)
+
                 vybrana_karta = hrac.vyber_kartu(popis, hrac.karty_ruka)
                 print(f'A vybral kartu cislo:{vybrana_karta.key}')
                 hrac.karty_ruka.remove(vybrana_karta)  # vybrana karta je vylozena na stul a odebrana z ruky
@@ -221,23 +224,17 @@ class Hra:
                     pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
                     hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
 
-        for karta, hrac in self.karty_na_stole: # da
-            self.karty_v_odhazovaci_hromadce.append(karta)
-
+        self.karty_v_odhazovaci_hromadce.extend([karta for karta, hrac in self.karty_na_stole])
+        #da kartu ze stolu do odh. hromadku
         self.karty_na_stole.clear()
 
-        if len(self.karty_v_balicku) < self.pocet_hracu * self.pocet_karet_pro_hrace:
-            for karta in self.karty_v_odhazovaci_hromadce:
-                self.karty_v_balicku.append(karta)
+        if len(self.karty_v_balicku) < self.pocet_hracu * self.pocet_karet_pro_hrace: #jestli neni dost karet,dopln
+            self.karty_v_balicku.extend(self.karty_v_odhazovaci_hromadce)
             self.karty_v_odhazovaci_hromadce.clear()
 
         for hrac in self.hraci:
                 # Kazdemu hraci da jednu kartu, (lize si kartu)
                 hrac.seber_kartu(self.karty_v_balicku.pop(0))
-
-
-
-
 
 
     def kolo(self):
@@ -248,7 +245,7 @@ class Hra:
             self.rozdej_karty()
 
         for i in range(len(self.hraci)): #kazdy hrac zahraje tah
-            self.tah(i-1)
+            self.tah(i)
 
 
     @staticmethod
