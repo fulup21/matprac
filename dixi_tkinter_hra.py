@@ -5,9 +5,10 @@ import random
 from PIL import Image, ImageTk
 import openai
 import base64
+from sk import mujklic
 
 # Set OpenAI API Key
-openai.api_key = "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"
+openai.api_key = mujklic
 
 CARD_FOLDER = "obrazky"
 CARD_SIZE = (100, 150)
