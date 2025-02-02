@@ -160,10 +160,35 @@ class Hra:
         for hrac in self.hraci:
             if hrac != vypravec:
                 vybrana_karta = hrac.vyber_kartu(popis, hrac.karty_ruka)
-                print(f'A vybral kartu cislo:{vybrana_karta.key}')
                 self.karty_na_stole.append((vybrana_karta, hrac))
 
         shuffle(self.karty_na_stole)
+
+        # Hraci, krome vypravece, hlasuji
+        hlasovani:list[tuple[Hrac,Karta]] = []
+        for hrac in self.hraci:
+            if hrac != vypravec:
+                vybrana_karta = hrac.vyber_kartu(popis, [k[0] for k in self.karty_na_stole])
+                hlasovani.append((hrac, vybrana_karta))
+
+        # Výpočet bodů
+        pocet_spravnych_hlasu = sum(1 for h in hlasovani if h[1] == vypravec_karta)
+
+        if pocet_spravnych_hlasu == 0 or pocet_spravnych_hlasu == len(self.hraci) - 1:
+            # Pokud všichni nebo nikdo neuhodl správně
+            for hrac in self.hraci:
+                if hrac != vypravec:
+                    hrac.skoruj(2)  # Přidej body nesprávně hádajícím hráčům
+        else:
+            vypravec.skoruj(3)  # Vypravěč dostává body
+            for hrac, vybrana in hlasovani:
+                if vybrana == vypravec_karta:
+                    hrac.skoruj(3)  # Hráči, kteří uhádli, dostanou body
+
+            for karta, hrac in self.karty_na_stole:
+                if karta != vypravec_karta:
+                    pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
+                    hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
 
         # Display cards with the selected card highlighted
         self.canvas.delete('all')
@@ -175,7 +200,8 @@ class Hra:
             x_offset = 50 + col * 600
             y_offset = 80 + row * 300
 
-            description_text = hrac.jmeno
+            # Include player's score in the display
+            description_text = f'{hrac.jmeno} (Score: {hrac.skore})'
             if hrac == vypravec:
                 description_text += f' - {popis}'
             self.canvas.create_text(x_offset, y_offset - 50, text=description_text, anchor='w', font=('Arial', 16, 'bold'))
@@ -202,6 +228,13 @@ class Hra:
                     elif any(karta == k[0] for k in self.karty_na_stole):
                         self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='yellow', width=3)
 
+                # Display the names of players who voted for the card below the card
+                y_offset_text = y + 140
+                for hlasujici_hrac, hlasovana_karta in hlasovani:
+                    if karta == hlasovana_karta:
+                        self.canvas.create_text(x + 40, y_offset_text, text=hlasujici_hrac.jmeno, anchor='n', font=('Arial', 10))
+                        y_offset_text += 15
+
         self.canvas.update()
 
         # Remove selected cards from players' hands after updating the canvas
@@ -214,8 +247,20 @@ class Hra:
         # Remove the vypravec_karta from the hand after updating the canvas
         vypravec.karty_ruka.remove(vypravec_karta)
 
-        return vypravec, popis, vypravec_karta
 
+        self.karty_v_odhazovaci_hromadce.extend([karta for karta, hrac in self.karty_na_stole])
+        #da kartu ze stolu do odh. hromadku
+        self.karty_na_stole.clear()
+
+        if len(self.karty_v_balicku) < self.pocet_hracu * self.pocet_karet_pro_hrace: #jestli neni dost karet,dopln
+            self.karty_v_balicku.extend(self.karty_v_odhazovaci_hromadce)
+            self.karty_v_odhazovaci_hromadce.clear()
+
+        for hrac in self.hraci:
+                # Kazdemu hraci da jednu kartu, (lize si kartu)
+                hrac.seber_kartu(self.karty_v_balicku.pop(0))
+
+        
     def zamichej_karty(self)->None:
         for item in SpravceKaret.mapa_karet:
             self.karty_v_balicku.append(SpravceKaret.mapa_karet[item])
@@ -235,8 +280,6 @@ class Hra:
 
                 # Jake karty dostal jaky hrac
                 # print(f"Hráč {hrac.jmeno} dostal kartu {hrac.karty_ruka[-1].key}")
-
-
 
 
     def play_turn(self):
