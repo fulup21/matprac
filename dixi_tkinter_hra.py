@@ -7,6 +7,7 @@ import openai
 import base64
 from sk import mujklic
 
+
 # Set OpenAI API Key
 openai.api_key = mujklic
 
