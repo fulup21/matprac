@@ -236,6 +236,9 @@ class Hra:
                 # Kazdemu hraci da jednu kartu, (lize si kartu)
                 hrac.seber_kartu(self.karty_v_balicku.pop(0))
 
+        for hrac in hra.hraci:
+            print(f"Hráč {hrac.jmeno} má skóre: {hrac.skore}")
+
 
     def kolo(self):
         """jedno kolo, ve kterem kazdy hrac odehraje tah"""
@@ -256,8 +259,3 @@ ajmena_hracu = ["Alice", "Bob", "Charlie", "Diana"]
 hra = Hra(pocet_hracu=4, jmena_hracu=ajmena_hracu)
 
 hra.kolo()
-
-
-# Výpis bodů hráčů po tahu
-for ahrac in hra.hraci:
-    print(f"Hráč {ahrac.jmeno} má skóre: {ahrac.skore}")
