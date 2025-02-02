@@ -149,15 +149,21 @@ class Hra:
 
     def tah(self, index_vypravece):
         """provede jeden tah, kdy jeden hrac je vybran vypravecem a ostatni hadaji"""
-
         self.karty_na_stole.clear() # ujisti, ze tam nic neni
 
         vypravec :Hrac = self.hraci[index_vypravece]
-        vypravec_karta :Karta = vypravec.karty_ruka.pop(0)  # vypravec vybere kartu, kterou bude popisovat
+        vypravec_karta :Karta = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
 
         popis :str = vypravec.udelej_popis(vypravec_karta)
 
-        vypravec.seber_kartu(vypravec_karta) # keep the vypravec_karta in the hand of the vypravec
+        self.karty_na_stole.append((vypravec_karta, vypravec))
+        for hrac in self.hraci:
+            if hrac != vypravec:
+                vybrana_karta = hrac.vyber_kartu(popis, hrac.karty_ruka)
+                print(f'A vybral kartu cislo:{vybrana_karta.key}')
+                self.karty_na_stole.append((vybrana_karta, hrac))
+
+        shuffle(self.karty_na_stole)
 
         # Display cards with the selected card highlighted
         self.canvas.delete('all')
@@ -183,6 +189,8 @@ class Hra:
                     self.canvas.create_image(x + 40, y + 60, image=card_image)
                     if karta == vypravec_karta:
                         self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='red', width=3)
+                    elif any(karta == k[0] for k in self.karty_na_stole):
+                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='yellow', width=3)
                     if not hasattr(self, 'card_images'):
                         self.card_images = []
                     self.card_images.append(card_image)
@@ -191,8 +199,20 @@ class Hra:
                     self.canvas.create_text(x + 40, y + 60, text=str(karta.key))
                     if karta == vypravec_karta:
                         self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='red', width=3)
+                    elif any(karta == k[0] for k in self.karty_na_stole):
+                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='yellow', width=3)
 
         self.canvas.update()
+
+        # Remove selected cards from players' hands after updating the canvas
+        for hrac in self.hraci:
+            if hrac != vypravec:
+                for vybrana_karta, _ in self.karty_na_stole:
+                    if vybrana_karta in hrac.karty_ruka:
+                        hrac.karty_ruka.remove(vybrana_karta)
+
+        # Remove the vypravec_karta from the hand after updating the canvas
+        vypravec.karty_ruka.remove(vypravec_karta)
 
         return vypravec, popis, vypravec_karta
 
