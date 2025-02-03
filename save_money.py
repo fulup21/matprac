@@ -155,45 +155,56 @@ class Hra:
         self.karty_na_stole.clear() # ujisti, ze tam nic neni
 
         vypravec :Hrac = self.hraci[index_vypravece]
+        # vypravec_karta :Karta = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
         vypravec_karta :Karta = vypravec.karty_ruka[0]
-        popis :str = vypravec.udelej_popis(vypravec_karta)
+        # popis :str = vypravec.udelej_popis(vypravec_karta)
+        popis :str = "sample popis dlouhy text bla bla bla"
+        # self.karty_na_stole.append((vypravec_karta, vypravec))
+        # for hrac in self.hraci:
+        #     if hrac != vypravec:
+        #         vybrana_karta = hrac.vyber_kartu(popis, hrac.karty_ruka)
+        #         self.karty_na_stole.append((vybrana_karta, hrac))
 
         self.karty_na_stole.append((vypravec_karta, vypravec))
         for hrac in self.hraci:
             if hrac != vypravec:
-                vybrana_karta = hrac.vyber_kartu(popis, hrac.karty_ruka)
+                vybrana_karta = hrac.karty_ruka[0]
                 self.karty_na_stole.append((vybrana_karta, hrac))
 
         shuffle(self.karty_na_stole)
+        # shuffle(self.karty_na_stole)
         
-        
-        # Hraci, krome vypravece, hlasuji
+        # # Hraci, krome vypravece, hlasuji
+        # hlasovani:list[tuple[Hrac,Karta]] = []
+        # for hrac in self.hraci:
+        #     if hrac != vypravec:
+        #         moznosti = [k[0] for k in self.karty_na_stole if k[1] != hrac]
+        #         vybrana_karta = hrac.vyber_kartu(popis, moznosti)
+        #         hlasovani.append((hrac, vybrana_karta))
         hlasovani:list[tuple[Hrac,Karta]] = []
         for hrac in self.hraci:
             if hrac != vypravec:
-                moznosti = [k[0] for k in self.karty_na_stole if k[1] != hrac]
-                vybrana_karta = hrac.vyber_kartu(popis, moznosti)
+                vybrana_karta = self.karty_na_stole[0][0]
                 hlasovani.append((hrac, vybrana_karta))
 
-
         # # Výpočet bodů
-        pocet_spravnych_hlasu = sum(1 for h in hlasovani if h[1] == vypravec_karta)
+        # pocet_spravnych_hlasu = sum(1 for h in hlasovani if h[1] == vypravec_karta)
 
-        if pocet_spravnych_hlasu == 0 or pocet_spravnych_hlasu == len(self.hraci) - 1:
-            # Pokud všichni nebo nikdo neuhodl správně
-            for hrac in self.hraci:
-                if hrac != vypravec:
-                    hrac.skoruj(2)  # Přidej body nesprávně hádajícím hráčům
-        else:
-            vypravec.skoruj(3)  # Vypravěč dostává body
-            for hrac, vybrana in hlasovani:
-                if vybrana == vypravec_karta:
-                    hrac.skoruj(3)  # Hráči, kteří uhádli, dostanou body
+        # if pocet_spravnych_hlasu == 0 or pocet_spravnych_hlasu == len(self.hraci) - 1:
+        #     # Pokud všichni nebo nikdo neuhodl správně
+        #     for hrac in self.hraci:
+        #         if hrac != vypravec:
+        #             hrac.skoruj(2)  # Přidej body nesprávně hádajícím hráčům
+        # else:
+        #     vypravec.skoruj(3)  # Vypravěč dostává body
+        #     for hrac, vybrana in hlasovani:
+        #         if vybrana == vypravec_karta:
+        #             hrac.skoruj(3)  # Hráči, kteří uhádli, dostanou body
 
-            for karta, hrac in self.karty_na_stole:
-                if karta != vypravec_karta:
-                    pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
-                    hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
+        #     for karta, hrac in self.karty_na_stole:
+        #         if karta != vypravec_karta:
+        #             pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
+        #             hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
 
         # Display cards with the selected card highlighted
         self.canvas.delete('all')
@@ -276,7 +287,7 @@ class Hra:
             y_offset = 80 + row * 300
 
             # Include player's score in the display
-            description_text = f'{hrac.jmeno} - Score: {hrac.skore}'
+            description_text = f'{hrac.jmeno}'
             self.canvas.create_text(x_offset, y_offset - 50, text=description_text, anchor='w', font=('Arial', 16, 'bold'))
             for card_idx, karta in enumerate(hrac.karty_ruka):
                 x = x_offset + card_idx * 100
