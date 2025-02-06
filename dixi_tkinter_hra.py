@@ -6,6 +6,7 @@ from PIL import Image, ImageTk
 import openai
 import base64
 from sk import mujklic
+from hra import Hrac
 
 # Set OpenAI API Key
 openai.api_key = mujklic
@@ -14,6 +15,7 @@ CARD_FOLDER = "obrazky"
 CARD_SIZE = (100, 150)
 PLAYER_COUNT = 4
 CARDS_PER_PLAYER = 5
+POVAHY = ["intelektuál", "farmář", "primitiv", "učitelka mateřské školky"]
 
 
 class DixitGame:
@@ -21,6 +23,7 @@ class DixitGame:
         self.root = root
         self.root.geometry("1400x1100")
         self.root.title("Dixit Game")
+        self.root.state("zoomed")
 
         self.canvas = Canvas(self.root)
         self.scrollbar = Scrollbar(self.root, orient="vertical", command=self.canvas.yview)
@@ -36,7 +39,7 @@ class DixitGame:
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
-        self.players = [f"Player {i + 1}" for i in range(PLAYER_COUNT)]
+        self.players:list[Hrac] = [Hrac(jmeno=str(i),povaha=POVAHY[i % len(POVAHY)],teplota=random.random() + 0.5) for i in range(PLAYER_COUNT)]
         random.shuffle(self.players)
         self.story_teller = self.players[0]
         self.cards = self.load_cards()

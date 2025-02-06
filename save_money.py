@@ -6,6 +6,7 @@ import json
 import tkinter as tk
 from tkinter import Canvas
 from PIL import Image, ImageTk
+import logging
 openai.api_key=mujklic #api klic od openai
 
 
@@ -122,15 +123,20 @@ class Hra:
         self.hraci: list[Hrac]= []
         self.povahy: list[str] = ["intelektuál", "farmář", "primitiv", "učitelka mateřské školky"]
         self.karty_v_balicku: list[Karta] = []
-        self.bodovaci_stupnice = [0] * pocet_hracu
+        self.bodovaci_stupnice = [0] * pocet_hracu # nemá smysl
         self.karty_v_odhazovaci_hromadce:list[Karta] = []
         self.karty_na_stole:list[tuple[Karta,Hrac]] = []
-        self.pocet_karet_pro_hrace = 6  # Každý hráč dostane 6 karet
-        self.pocet_kolo = 1
-        self.index_vypravece = 0
+        self.pocet_karet_pro_hrace: int = 6  # Každý hráč dostane 6 karet
+        self.pocet_kolo:int = 1
+        self.index_vypravece:int = 0
 
+        logging.basicConfig(filename='dixit.log', level=logging.INFO, 
+                          format='%(asctime)s - %(message)s',
+                          filemode='w')  # 'w' mod nebo 'a' mod 
+        logging.info("Spusteni aplikace")
+        
         self.root = root
-        self.root.geometry("1400x1100")
+        self.root.geometry("1920x1200")
         self.root.title("Dixit Game")
         self.root.state("zoomed")
 
@@ -138,17 +144,25 @@ class Hra:
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         # Create a bottom bar with a 'Play' button
-        bottom_bar = tk.Frame(self.root, height=50, bg='lightgrey')
-        bottom_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.bottom_bar = tk.Frame(self.root, height=50, bg='lightgrey')
+        self.bottom_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        play_button = tk.Button(bottom_bar, text='Play', command=self.play_turn)
-        play_button.pack(side=tk.RIGHT, padx=10, pady=10)
+        self.play_button = tk.Button(self.bottom_bar, text='Play', command=self.play_turn)
+        self.play_button.pack(side=tk.RIGHT, padx=10, pady=10)
+        
+        self.log_button = tk.Button(self.bottom_bar, text="Log", command=self.show_log)
+        self.log_button.pack(side=tk.LEFT, padx=2, pady=1)
 
         for i in range(self.pocet_hracu):
             self.hraci.append(Hrac(self.jmena_hracu[i],povaha=self.povahy[i % len(self.povahy)], teplota=random() + 0.5))
 
         self.zamichej_karty()
         self.rozdej_karty()
+        self.canvas.after(100, self.center_text)
+
+    def center_text(self):
+        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text="Simulace Dixitu bez openai", font=("Arial", 24), anchor=tk.CENTER)
+        self.canvas.create_text(self.canvas.winfo_width() // 2, (self.canvas.winfo_height() // 2) + 30, text="Pro spustneni zmacknete tlacitko 'Play', pro zobrazeni logu zmacknete tlacitko 'Log'", font=("Arial", 18), anchor=tk.CENTER)
 
     def tah(self, index_vypravece):
         """provede jeden tah, kdy jeden hrac je vybran vypravecem a ostatni hadaji"""
@@ -156,9 +170,12 @@ class Hra:
 
         vypravec :Hrac = self.hraci[index_vypravece]
         # vypravec_karta :Karta = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
+
         vypravec_karta :Karta = vypravec.karty_ruka[0]
         # popis :str = vypravec.udelej_popis(vypravec_karta)
         popis :str = "sample popis dlouhy text bla bla bla"
+        logging.info(f"Vypravec: {vypravec.jmeno}")
+        logging.info(f"Vybrana karta: {vypravec_karta.key}, Popis: {popis}")
         # self.karty_na_stole.append((vypravec_karta, vypravec))
         # for hrac in self.hraci:
         #     if hrac != vypravec:
@@ -169,6 +186,7 @@ class Hra:
         for hrac in self.hraci:
             if hrac != vypravec:
                 vybrana_karta = hrac.karty_ruka[0]
+                logging.info(f"Hrac {hrac.jmeno} vybral k popisu {popis} kartu: {vybrana_karta.key} a vylozil ji na stul")
                 self.karty_na_stole.append((vybrana_karta, hrac))
 
         shuffle(self.karty_na_stole)
@@ -185,6 +203,7 @@ class Hra:
         for hrac in self.hraci:
             if hrac != vypravec:
                 vybrana_karta = self.karty_na_stole[0][0]
+                logging.info(f"Hrac {hrac.jmeno} hlasoval pro kartu: {vybrana_karta.key}")
                 hlasovani.append((hrac, vybrana_karta))
 
         # # Výpočet bodů
@@ -209,6 +228,9 @@ class Hra:
         # Display cards with the selected card highlighted
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas.create_text(self.canvas.winfo_width() // 2, 600, text=f"{self.pocet_kolo}. kolo hry", font=("Arial", 24, "bold"))
+
 
         for idx, hrac in enumerate(self.hraci):
             col = idx % 2
@@ -279,6 +301,8 @@ class Hra:
     def predzobrazeni(self):
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
+        self.canvas.create_text(self.canvas.winfo_width() // 2, 600, text=f"Predzobrazeni: probiha kolo cislo {self.pocet_kolo}", font=("Arial", 24, "bold"))
+
         self.card_images = []  # Ensure this list is initialized to store image references
         for idx, hrac in enumerate(self.hraci):
             col = idx % 2
@@ -308,10 +332,11 @@ class Hra:
         for item in SpravceKaret.mapa_karet:
             self.karty_v_balicku.append(SpravceKaret.mapa_karet[item])
             shuffle(self.karty_v_balicku)
+        logging.info("Karty byly zamichany")
 
     def rozdej_karty(self):
         #Rozda karty
-
+        logging.info("Karty byly rozdany")
         # Ujistime se, ze mame dost karet v balicku
         if len(self.karty_v_balicku) < self.pocet_hracu * self.pocet_karet_pro_hrace:
             raise ValueError("Chyba s kartami, neni jich dost")
@@ -328,13 +353,76 @@ class Hra:
     def play_turn(self):
         # Step 1: Display the initial state with player names and cards
         self.predzobrazeni()
-        
+        logging.info("@play_turn - Doslo k prvotnim zobrazeni karet pred kolem")
         # Step 2: Execute a turn, which includes the call to ChatGPT
         self.tah(self.index_vypravece)
-        self.index_vypravece = (self.index_vypravece + 1) % len(self.hraci)
+        logging.info("@play_turn -Doslo k tahu")
+        self.index_vypravece += 1
+
+        if self.index_vypravece >= len(self.hraci):         # jestli je index vypravece >= 4, odehralo se kolo a vypravec je znova ta sama osoba
+            self.index_vypravece = 0
+            self.pocet_kolo += 1
+
         
         # Step 3: Update the canvas to reflect any changes after the turn
         self.canvas.update()
+
+    def show_log(self):
+        """Show the log window."""
+        log_window = tk.Toplevel(self.root)
+        log_window.title("Log")
+        
+        # Calculate size based on main window
+        main_width = self.root.winfo_width()
+        main_height = self.root.winfo_height()
+        window_width = int(main_width * 0.4)  # 40% of main window width
+        window_height = int(main_height * 0.8)  # 80% of main window height (90% - 10%)
+        
+        # Calculate position (centered horizontally, 10% from top)
+        x = self.root.winfo_x() + (main_width - window_width) // 2
+        y = self.root.winfo_y() + int(main_height * 0.1)  # Start at 10% from top
+        
+        log_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        log_window.minsize(300, 400)
+        
+        # Create main frame for log window with padding
+        log_frame = tk.Frame(log_window)
+        log_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Create text widget with scrollbars
+        text_frame = tk.Frame(log_frame)
+        text_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+        
+        log_text = tk.Text(text_frame, wrap=tk.WORD)
+        scrollbar_y = tk.Scrollbar(text_frame, orient=tk.VERTICAL, command=log_text.yview)
+        scrollbar_x = tk.Scrollbar(text_frame, orient=tk.HORIZONTAL, command=log_text.xview)
+        
+        log_text.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+        
+        # Grid layout for text and scrollbars
+        log_text.grid(row=0, column=0, sticky='nsew')
+        scrollbar_y.grid(row=0, column=1, sticky='ns')
+        scrollbar_x.grid(row=1, column=0, sticky='ew')
+        
+        # Configure grid weights
+        text_frame.grid_rowconfigure(0, weight=1)
+        text_frame.grid_columnconfigure(0, weight=1)
+        
+        # Load and display log content
+        try:
+            with open('dixit.log', 'r') as log_file:
+                log_content = log_file.read()
+                log_text.insert('1.0', log_content)
+                log_text.config(state='disabled')  # Make text read-only
+        except Exception as e:
+            log_text.insert('1.0', f"Error reading log file: {str(e)}")
+            log_text.config(state='disabled')
+        
+        # Add close button in its own frame at the bottom with more padding
+        button_frame = tk.Frame(log_frame)
+        button_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        close_button = tk.Button(button_frame, text="Close", command=log_window.destroy)
+        close_button.pack(pady=10, padx=5)
 
 if __name__ == "__main__":
     root = tk.Tk()

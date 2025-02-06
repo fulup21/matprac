@@ -3,6 +3,8 @@ from abstrakt_hrac import AbstraktHrac, Karta
 from sk import mujklic
 import openai
 import json
+import tkinter as tk
+from tkinter import ttk
 
 openai.api_key=mujklic #api klic od openai
 
@@ -166,12 +168,12 @@ class Hra:
 
 
 
-    def tah(self, index_vypravece):
+    def tah(self, vypravec_index, progress):
         """provede jeden tah, kdy jeden hrac je vybran vypravecem a ostatni hadaji"""
 
         self.karty_na_stole.clear() # ujisti, ze tam nic neni
         print("DALSI TAH!!!!!!!!!!")
-        vypravec :Hrac = self.hraci[index_vypravece]
+        vypravec :Hrac = self.hraci[vypravec_index]
         vypravec_karta :Karta = vypravec.karty_ruka.pop(0)  # vypravec vybere kartu, kterou bude popisovat
         print(f'Vypravec je {vypravec.jmeno} a vybira kartu: {vypravec_karta.key}')
         popis :str = vypravec.udelej_popis(vypravec_karta)
@@ -198,10 +200,11 @@ class Hra:
         shuffle(self.karty_na_stole)
 
         # Hraci, krome vypravece, hlasuji
-        hlasovani = []
+        hlasovani:list[tuple[Hrac,Karta]] = []
         for hrac in self.hraci:
             if hrac != vypravec:
-                vybrana_karta = hrac.vyber_kartu(popis, [k[0] for k in self.karty_na_stole])
+                moznosti = [k[0] for k in self.karty_na_stole if k[1] != hrac]
+                vybrana_karta = hrac.vyber_kartu(popis, moznosti)
                 print(f'hrac {hrac.jmeno} vybral kartu {vybrana_karta.key}')
                 hlasovani.append((hrac, vybrana_karta))
 
@@ -223,7 +226,6 @@ class Hra:
                 if karta != vypravec_karta:
                     pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
                     hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
-
         self.karty_v_odhazovaci_hromadce.extend([karta for karta, hrac in self.karty_na_stole])
         #da kartu ze stolu do odh. hromadku
         self.karty_na_stole.clear()
@@ -236,7 +238,7 @@ class Hra:
                 # Kazdemu hraci da jednu kartu, (lize si kartu)
                 hrac.seber_kartu(self.karty_v_balicku.pop(0))
 
-        for hrac in hra.hraci:
+        for hrac in self.hraci:
             print(f"Hráč {hrac.jmeno} má skóre: {hrac.skore}")
 
 
@@ -246,9 +248,6 @@ class Hra:
         if self.pocet_kolo == 1: #pokud je to prvni kolo, rozdej a zamichej karty
             self.zamichej_karty()
             self.rozdej_karty()
-
-        for i in range(len(self.hraci)): #kazdy hrac zahraje tah
-            self.tah(i)
 
 
     @staticmethod
