@@ -9,6 +9,13 @@ from PIL import Image, ImageTk
 import logging
 openai.api_key=mujklic #api klic od openai
 
+logging.basicConfig(filename='dixit.log', level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',filemode='w')  # 'w' mod nebo 'a' mod
+logging.getLogger("httpx").setLevel(logging.WARNING)
+log = logging.getLogger("dixit")
+
+# upravit ui at je prehlednejsi
+# multithreading
+
 
 
 class SpravceKaret:
@@ -68,6 +75,7 @@ class Hrac(AbstraktHrac):
                   "type": "image_url",
                   "image_url": {
                     "url": f"data:image/png;base64,{karta.zakodovany_obrazek}",
+                    "detail":"low",
                   },
                 },
               ],
@@ -89,7 +97,8 @@ class Hrac(AbstraktHrac):
         for i in range(len(vylozene_karty)):
             g = {"type": "image_url",
                  "image_url": {
-                     "url": f"data:image/png;base64,{vylozene_karty[i].zakodovany_obrazek}"}}
+                     "url": f"data:image/png;base64,{vylozene_karty[i].zakodovany_obrazek}",
+                 "detail":"low"}}
             odpoved.append(g)
 
         response = openai.chat.completions.create(
@@ -117,7 +126,8 @@ spravce = SpravceKaret("pokus.json")
 
 class Hra:
     """Hra s jednim hrqcim kolem"""
-    def __init__(self, pocet_hracu:int, jmena_hracu:list[str],root):
+    def __init__(self, pocet_hracu:int, jmena_hracu:list[str],root:tk.Tk,debug=False):
+        self.debug = debug
         self.pocet_hracu = pocet_hracu
         self.jmena_hracu = jmena_hracu
         self.hraci: list[Hrac]= []
@@ -129,11 +139,11 @@ class Hra:
         self.pocet_karet_pro_hrace: int = 6  # Každý hráč dostane 6 karet
         self.pocet_kolo:int = 1
         self.index_vypravece:int = 0
+        self.pozadi: list[str] = ['dodger blue', 'IndianRed1', 'slate blue', 'PaleGreen1']
 
-        logging.basicConfig(filename='dixit.log', level=logging.INFO, 
-                          format='%(asctime)s - %(message)s',
-                          filemode='w')  # 'w' mod nebo 'a' mod 
-        logging.info("Spusteni aplikace")
+
+
+        log.info("Spusteni aplikace")
         
         self.root = root
         self.root.geometry("1920x1200")
@@ -158,77 +168,125 @@ class Hra:
 
         self.zamichej_karty()
         self.rozdej_karty()
-        self.canvas.after(100, self.center_text)
+        self.canvas.after(100, self.center_text,)
 
-    def center_text(self):
-        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text="Simulace Dixitu s openai", font=("Arial", 24), anchor=tk.CENTER)
+    def center_text(self)->None:
+        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text="Simulace hry Dixit s openai", font=("Arial", 24), anchor=tk.CENTER)
         self.canvas.create_text(self.canvas.winfo_width() // 2, (self.canvas.winfo_height() // 2) + 30, text="Pro spustneni zmacknete tlacitko 'Play', pro zobrazeni logu zmacknete tlacitko 'Log'", font=("Arial", 18), anchor=tk.CENTER)
 
-    def tah(self, index_vypravece):
+    def tah(self, index_vypravece)->None:
         """provede jeden tah, kdy jeden hrac je vybran vypravecem a ostatni hadaji"""
-        self.karty_na_stole.clear() # ujisti, ze tam nic neni
+        if self.debug:
+                    self.karty_na_stole.clear() # ujisti, ze tam nic neni
 
         vypravec :Hrac = self.hraci[index_vypravece]
-        vypravec_karta :Karta = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
+        # vypravec_karta :Karta = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
 
-
-        popis :str = vypravec.udelej_popis(vypravec_karta)
+        vypravec_karta :Karta = vypravec.karty_ruka[0]
         
+        popis :str = "sample popis dlouhy text bla bla bla"
         logging.info(f"Vypravec: {vypravec.jmeno}")
         logging.info(f"Vybrana karta: {vypravec_karta.key}, Popis: {popis}")
+        
+
         self.karty_na_stole.append((vypravec_karta, vypravec))
         for hrac in self.hraci:
             if hrac != vypravec:
-                vybrana_karta = hrac.vyber_kartu(popis, hrac.karty_ruka)
-                self.karty_na_stole.append((vybrana_karta, hrac))
+                vybrana_karta = hrac.karty_ruka[0]
                 logging.info(f"Hrac {hrac.jmeno} vybral k popisu {popis} kartu: {vybrana_karta.key} a vylozil ji na stul")
-
-
+                self.karty_na_stole.append((vybrana_karta, hrac))
 
         shuffle(self.karty_na_stole)
-
         
-        # Hraci, krome vypravece, hlasuji
         hlasovani:list[tuple[Hrac,Karta]] = []
         for hrac in self.hraci:
             if hrac != vypravec:
-                moznosti = [k[0] for k in self.karty_na_stole if k[1] != hrac]
-                vybrana_karta = hrac.vyber_kartu(popis, moznosti)
-                hlasovani.append((hrac, vybrana_karta))
+                vybrana_karta = self.karty_na_stole[0][0]
                 logging.info(f"Hrac {hrac.jmeno} hlasoval pro kartu: {vybrana_karta.key}")
+                hlasovani.append((hrac, vybrana_karta))
 
 
-        # # Výpočet bodů
-        pocet_spravnych_hlasu = sum(1 for h in hlasovani if h[1] == vypravec_karta)
+        if not self.debug:
+            self.karty_na_stole.clear() # ujisti, ze tam nic neni
 
-        if pocet_spravnych_hlasu == 0 or pocet_spravnych_hlasu == len(self.hraci) - 1:
-            # Pokud všichni nebo nikdo neuhodl správně
+            vypravec :Hrac = self.hraci[index_vypravece]
+            vypravec_karta :Karta = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
+
+
+            popis :str = vypravec.udelej_popis(vypravec_karta)
+            
+            log.info(f"Vypravec: {vypravec.jmeno}")
+            log.info(f"Vybrana karta: {vypravec_karta.key}, Popis: {popis}")
+            self.karty_na_stole.append((vypravec_karta, vypravec))
             for hrac in self.hraci:
                 if hrac != vypravec:
-                    hrac.skoruj(2)  # Přidej body nesprávně hádajícím hráčům
-        else:
-            vypravec.skoruj(3)  # Vypravěč dostává body
-            for hrac, vybrana in hlasovani:
-                if vybrana == vypravec_karta:
-                    hrac.skoruj(3)  # Hráči, kteří uhádli, dostanou body
+                    vybrana_karta = hrac.vyber_kartu(popis, hrac.karty_ruka)
+                    self.karty_na_stole.append((vybrana_karta, hrac))
+                    log.info(f"Hrac {hrac.jmeno} vybral k popisu {popis} kartu: {vybrana_karta.key} a vylozil ji na stul")
 
-            for karta, hrac in self.karty_na_stole:
-                if karta != vypravec_karta:
-                    pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
-                    hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
+
+
+            shuffle(self.karty_na_stole)
+
+            
+            # Hraci, krome vypravece, hlasuji
+            hlasovani:list[tuple[Hrac,Karta]] = []
+            for hrac in self.hraci:
+                if hrac != vypravec:
+                    moznosti = [k[0] for k in self.karty_na_stole if k[1] != hrac]
+                    vybrana_karta = hrac.vyber_kartu(popis, moznosti)
+                    hlasovani.append((hrac, vybrana_karta))
+                    log.info(f"Hrac {hrac.jmeno} hlasoval pro kartu: {vybrana_karta.key}")
+
+
+            # # Výpočet bodů
+            pocet_spravnych_hlasu = sum(1 for h in hlasovani if h[1] == vypravec_karta)
+
+            if pocet_spravnych_hlasu == 0 or pocet_spravnych_hlasu == len(self.hraci) - 1:
+                # Pokud všichni nebo nikdo neuhodl správně
+                for hrac in self.hraci:
+                    if hrac != vypravec:
+                        hrac.skoruj(2)  # Přidej body nesprávně hádajícím hráčům
+            else:
+                vypravec.skoruj(3)  # Vypravěč dostává body
+                for hrac, vybrana in hlasovani:
+                    if vybrana == vypravec_karta:
+                        hrac.skoruj(3)  # Hráči, kteří uhádli, dostanou body
+
+                for karta, hrac in self.karty_na_stole:
+                    if karta != vypravec_karta:
+                        pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
+                        hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
 
         # Display cards with the selected card highlighted
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        self.canvas.create_text(self.canvas.winfo_width() // 2, 600, text=f"{self.pocet_kolo}. kolo hry", font=("Arial", 24, "bold"))
-
-
         for idx, hrac in enumerate(self.hraci):
             col = idx % 2
             row = idx // 2
             x_offset = 50 + col * 600
-            y_offset = 80 + row * 300
+            if col == 0:
+                x_offset -= 20  # Move left column players to the left
+            else:
+                x_offset += 70  # Move right column players to the right
+
+            y_offset = 80 + row * 450  # Move cards closer to the bottom
+
+            # Draw a gray rectangle behind the player's name and cards
+            rect_x1 = x_offset - 10
+            rect_y1 = y_offset - 10
+            rect_x2 = x_offset + 540  # Increase width by 100 pixels
+            rect_y2 = y_offset + 130
+
+            self.canvas.create_rectangle(rect_x1, rect_y1, rect_x2, rect_y2, fill='lightgrey', outline='')
+
+            # Draw a colored dot in front of the player's name
+            circle_x1 = x_offset - 20
+            circle_y1 = y_offset - 60
+            circle_y2 = y_offset - 45
+            circle_x2 = x_offset - 5  # Define circle_x2 to be slightly to the right of circle_x1
+            self.canvas.create_oval(circle_x1, circle_y1, circle_x2, circle_y2, fill=self.pozadi[idx % len(self.pozadi)], outline='')
 
             # Include player's score in the display
             description_text = f'{hrac.jmeno} (Score: {hrac.skore})'
@@ -236,7 +294,7 @@ class Hra:
                 description_text += f' - {popis}'
             self.canvas.create_text(x_offset, y_offset - 50, text=description_text, anchor='w', font=('Arial', 16, 'bold'))
             for card_idx, karta in enumerate(hrac.karty_ruka):
-                x = x_offset + card_idx * 100
+                x = x_offset + card_idx * 90  # Reduce spacing by decreasing the multiplier
                 y = y_offset
                 if karta.zakodovany_obrazek:
                     image = Image.open(karta.path)
@@ -244,9 +302,9 @@ class Hra:
                     card_image = ImageTk.PhotoImage(image)
                     self.canvas.create_image(x + 40, y + 60, image=card_image)
                     if karta == vypravec_karta:
-                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='red', width=3)
+                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline=self.pozadi[idx % len(self.pozadi)], width=5)
                     elif any(karta == k[0] for k in self.karty_na_stole):
-                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='yellow', width=3)
+                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline=self.pozadi[idx % len(self.pozadi)], width=5)
                     if not hasattr(self, 'card_images'):
                         self.card_images = []
                     self.card_images.append(card_image)
@@ -257,14 +315,43 @@ class Hra:
                         self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='red', width=3)
                     elif any(karta == k[0] for k in self.karty_na_stole):
                         self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='yellow', width=3)
+         
 
-                # Display the names of players who voted for the card below the card
-                y_offset_text = y + 140
-                for hlasujici_hrac, hlasovana_karta in hlasovani:
-                    if karta == hlasovana_karta:
-                        self.canvas.create_text(x + 40, y_offset_text, text=hlasujici_hrac.jmeno, anchor='n', font=('Arial', 10))
-                        y_offset_text += 15
+        """Blok karet urprostred"""
 
+        # Calculate the starting position to center the cards on the canvas
+        canvas_width = self.canvas.winfo_width()
+        num_cards = len(self.karty_na_stole)
+        card_width = 80  # Assuming each card is 80 pixels wide
+        starting_x = (canvas_width - (num_cards * card_width + (num_cards - 1) * 10)) // 2
+
+        # Display the cards side by side with a gap and outline
+        for idx, (karta, hrac) in enumerate(self.karty_na_stole):
+            x = starting_x + idx * (card_width + 10)  # Include the gap in the calculation
+            y = self.canvas.winfo_height() // 2   # Adjust vertical position
+
+            image = Image.open(karta.path)
+            image = image.resize((80, 120))
+            card_image = ImageTk.PhotoImage(image)
+            # Draw outline with the player's color
+            player_index = self.hraci.index(hrac)
+            outline_color = self.pozadi[player_index % len(self.pozadi)]
+            self.canvas.create_rectangle(x, y-80, x + 80, y + 60, fill = outline_color, outline=outline_color, width=3)
+            self.canvas.create_image(x + 40, y, image=card_image)
+
+            if not hasattr(self, 'card_images'):
+                self.card_images = []
+            self.card_images.append(card_image)
+            self.canvas.create_text(x + 40, y - 60, text=hrac.jmeno, anchor='s', font=('Arial', 10, 'bold'))
+
+            # Display the names of players who voted for the card below the card
+            y_offset_text = y + 70  # Position text below the card
+            for hlasujici_hrac, hlasovana_karta in hlasovani:
+                if karta == hlasovana_karta:
+                    self.canvas.create_text(x + 40, y_offset_text, text=hlasujici_hrac.jmeno, anchor='n', font=('Arial', 10))
+                    y_offset_text += 15
+        footer_text = tk.Label(self.bottom_bar, text=f'Probiha kolo cislo {self.pocet_kolo}, vypravec je {vypravec.jmeno}', bg='lightgrey', font=('Arial', 12, 'bold'))
+        footer_text.pack(side=tk.BOTTOM, pady=10)
         self.canvas.update()
 
         # Remove selected cards from players' hands after updating the canvas
@@ -293,20 +380,40 @@ class Hra:
     def predzobrazeni(self):
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
-        self.canvas.create_text(self.canvas.winfo_width() // 2, 600, text=f"Predzobrazeni: probiha kolo cislo {self.pocet_kolo}", font=("Arial", 24, "bold"))
+        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text=f"Predzobrazeni: probiha kolo cislo {self.pocet_kolo}", font=("Arial", 24, "bold"))
 
         self.card_images = []  # Ensure this list is initialized to store image references
         for idx, hrac in enumerate(self.hraci):
             col = idx % 2
             row = idx // 2
             x_offset = 50 + col * 600
-            y_offset = 80 + row * 300
+            if col == 0:
+                x_offset -= 20  # Move left column players to the left
+            else:
+                x_offset += 70  # Move right column players to the right
+
+            y_offset = 80 + row * 450  # Adjusted y_offset for player blocks
+
+            # Draw a gray rectangle behind the player's name and cards
+            rect_x1 = x_offset - 10
+            rect_y1 = y_offset - 10
+            rect_x2 = x_offset + 540  # Adjust the width to fit the new card spacing
+            rect_y2 = y_offset + 130  # Adjust the height if necessary
+            self.canvas.create_rectangle(rect_x1, rect_y1, rect_x2, rect_y2, fill='lightgrey', outline='')
+
+            # Draw a colored dot in front of the player's name
+            circle_x1 = x_offset - 20
+            circle_y1 = y_offset - 60
+            circle_y2 = y_offset - 45
+            circle_x2 = x_offset - 5  # Define circle_x2 to be slightly to the right of circle_x1
+            self.pozadi:list[str] = ['dodger blue', 'IndianRed1','slate blue','PaleGreen1']
+            self.canvas.create_oval(circle_x1, circle_y1, circle_x2, circle_y2, fill=self.pozadi[idx % len(self.pozadi)], outline='')
 
             # Include player's score in the display
-            description_text = f'{hrac.jmeno}'
+            description_text = f'{hrac.jmeno} (Score: {hrac.skore})'
             self.canvas.create_text(x_offset, y_offset - 50, text=description_text, anchor='w', font=('Arial', 16, 'bold'))
             for card_idx, karta in enumerate(hrac.karty_ruka):
-                x = x_offset + card_idx * 100
+                x = x_offset + card_idx * 90  # Adjusted spacing between cards
                 y = y_offset
                 if karta.zakodovany_obrazek:
                     image = Image.open(karta.path)
@@ -324,11 +431,11 @@ class Hra:
         for item in SpravceKaret.mapa_karet:
             self.karty_v_balicku.append(SpravceKaret.mapa_karet[item])
             shuffle(self.karty_v_balicku)
-        logging.info("Karty byly zamichany")
+        log.info("Karty byly zamichany")
 
     def rozdej_karty(self):
         #Rozda karty
-        logging.info("Karty byly rozdany")
+        log.info("Karty byly rozdany")
         # Ujistime se, ze mame dost karet v balicku
         if len(self.karty_v_balicku) < self.pocet_hracu * self.pocet_karet_pro_hrace:
             raise ValueError("Chyba s kartami, neni jich dost")
@@ -344,20 +451,21 @@ class Hra:
 
     def play_turn(self):
         # Step 1: Display the initial state with player names and cards
+        for widget in self.bottom_bar.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.destroy()
         self.predzobrazeni()
-        logging.info("@play_turn - Doslo k prvotnim zobrazeni karet pred kolem")
+        log.info("@play_turn - Doslo k prvotnim zobrazeni karet pred kolem")
         # Step 2: Execute a turn, which includes the call to ChatGPT
         self.tah(self.index_vypravece)
-        logging.info("@play_turn -Doslo k tahu")
+        log.info("@play_turn -Doslo k tahu")
         self.index_vypravece += 1
 
         if self.index_vypravece >= len(self.hraci):         # jestli je index vypravece >= 4, odehralo se kolo a vypravec je znova ta sama osoba
             self.index_vypravece = 0
             self.pocet_kolo += 1
-
         
-        # Step 3: Update the canvas to reflect any changes after the turn
-        self.canvas.update()
+        
 
     def show_log(self):
         """Show the log window."""
@@ -418,5 +526,5 @@ class Hra:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    game = Hra(4, ["Petr", "Jana", "Josef", "Pavel"], root)
+    game = Hra(4, ["Petr", "Jana", "Josef", "Pavel"], root, debug=True)
     root.mainloop()
