@@ -2,7 +2,7 @@ import os
 import json
 import base64
 
-from abstrakt_hrac import Karta
+from abstrakt_hrac import Card
 
 
 # Funkce pro získání čísla z názvu souboru
@@ -18,7 +18,7 @@ def kodovani_base64(soubor: str) -> str:
     return obrazek_base64
 
 # Funkce pro získání všech obrázků a jejich uložení do seznamu
-def ziskani_vsech_obrazku() -> list[Karta]:
+def ziskani_vsech_obrazku() -> list[Card]:
     slozka = r"C:\Users\filip\Documents\Skola\matprac\obrazky"
     obrazky = []
 
@@ -33,12 +33,12 @@ def ziskani_vsech_obrazku() -> list[Karta]:
         key = ziskani_cisla(soubor)
         cesta = os.path.join(slozka, soubor)
         base64_data = kodovani_base64(cesta)
-        obrazky.append(Karta(key = key, path = cesta, zakodovany_obrazek = base64_data))
+        obrazky.append(Card(key = key, path = cesta, encoded_picture = base64_data))
     
     return obrazky
 
 # Funkce pro uložení obrázků do JSON souboru
-def ulozit_do_json(obrazky: list[Karta], soubor_json: str)->None:
+def ulozit_do_json(obrazky: list[Card], soubor_json: str)->None:
     # Zapsat seznam obrázků do JSON souboru
     json_data = json.dumps([obrazek.model_dump() for obrazek in obrazky], ensure_ascii=False, indent=4)
     with open(soubor_json, "w", encoding="utf-8") as f:

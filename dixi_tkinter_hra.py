@@ -39,7 +39,7 @@ class DixitGame:
         self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
-        self.players:list[Hrac] = [Hrac(jmeno=str(i),povaha=POVAHY[i % len(POVAHY)],teplota=random.random() + 0.5) for i in range(PLAYER_COUNT)]
+        self.players:list[Hrac] = [Hrac(name=str(i), nature=POVAHY[i % len(POVAHY)], temperature=random.random() + 0.5) for i in range(PLAYER_COUNT)]
         random.shuffle(self.players)
         self.story_teller = self.players[0]
         self.cards = self.load_cards()

@@ -3,42 +3,42 @@ from abc import abstractmethod,ABC
 from pydantic import BaseModel
 
 
-class Karta(BaseModel):
+class Card(BaseModel):
     """jedna karta s obrazkem"""
     key:int
     path:str
-    zakodovany_obrazek: str
+    encoded_picture: str
 
 
-class AbstraktHrac(ABC):
+class AbstractPlayer(ABC):
     """jednotlivi Chatgpt hraci"""
-    karty_ruka:list[Karta]=[]
-    skore: int = 0
+    cards_on_hand:list[Card]=[]
+    score: int = 0
 
     @abstractmethod
-    def __init__(self, jmeno:str, povaha: str|None, teplota:float|None)->None:
+    def __init__(self, name:str, nature: str | None, temperature: float | None)->None:
         """zde se nastavi jak se bude hrac chovat"""
-        self.povaha = povaha
-        self.teplota = teplota
-        self.jmeno = jmeno
+        self.nature = nature
+        self.temperature = temperature
+        self.name = name
         ...
 
     @abstractmethod
-    def seber_kartu(self, karta:Karta) -> None:
+    def take_card(self, card:Card) -> None:
         """prirad kartu do ruky"""
         ...
 
     @abstractmethod
-    def udelej_popis(self, karta:Karta)->str:
+    def make_description(self, card:Card)->str:
         """udela popis pro jednu kartu"""
         ...
 
     @abstractmethod
-    def vyber_kartu(self, popis:str, vylozene_karty:list[Karta])->Karta:
+    def choose_card(self, description:str, laid_out_cards:list[Card])->Card:
         """podiva se na vsechny karty 'na stole' a porovna je se zdanim"""
         ...
 
     @abstractmethod
-    def skoruj(self, cislo) -> None:
+    def score_add(self, number:int) -> None:
         """prirad kartu do ruky"""
         ...

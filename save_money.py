@@ -1,5 +1,5 @@
 from random import random, shuffle
-from abstrakt_hrac import AbstraktHrac, Karta
+from abstrakt_hrac import AbstractPlayer, Karta
 from sk import mujklic
 import openai
 import json
@@ -33,23 +33,23 @@ class SpravceKaret:
         except KeyError:
             raise ValueError(f"Karta s klicem: {klic} nebyla nalezena")
 
-class Hrac(AbstraktHrac):
+class Hrac(AbstractPlayer):
     """jednotlivi Chatgpt hraci"""
 
 
-    def __init__(self,  jmeno:str, povaha: str = None, teplota:float = None)->None:
+    def __init__(self, name:str, nature: str = None, temperature:float = None)->None:
         """zde se nastavi jak se bude hrac chovat"""
-        self.povaha = povaha
-        self.teplota = teplota
-        self.jmeno = jmeno
+        self.povaha = nature
+        self.teplota = temperature
+        self.jmeno = name
         self.karty_ruka: list[Karta] = []
         self.skore = 0
 
 
-    def seber_kartu(self, karta: Karta) -> None:
-        self.karty_ruka.append(karta)
+    def take_card(self, card: Karta) -> None:
+        self.karty_ruka.append(card)
 
-    def udelej_popis(self, karta:Karta)->str:
+    def make_description(self, card:Karta)->str:
         prompt = """Na základě zadaného obrázku vytvoř abstraktní pojem 
         vystihující atmosféru a koncept obrázku, vyhni se popisu detailů. 
         Vypiš mi pouze tento pojem a to ve formatu:'pojem'"""
@@ -67,7 +67,7 @@ class Hrac(AbstraktHrac):
                 {
                   "type": "image_url",
                   "image_url": {
-                    "url": f"data:image/png;base64,{karta.zakodovany_obrazek}",
+                    "url": f"data:image/png;base64,{card.encoded_picture}",
                   },
                 },
               ],
@@ -77,19 +77,19 @@ class Hrac(AbstraktHrac):
         )
         return response.choices[0].message.content
 
-    def vyber_kartu(self, popis:str, vylozene_karty:list[Karta])->Karta:
+    def choose_card(self, description:str, laid_out_cards:list[Karta])->Karta:
 
         """podiva se na vsechny karty 'na stole' a porovna je se zdanim"""
 
-        prompt = f"Na základě zadaných obrázků vyber ten, ktery nejlepe sedi zadanemu popisu:{popis}. Napis mi pouze cislo karty ve formatu:1"
+        prompt = f"Na základě zadaných obrázků vyber ten, ktery nejlepe sedi zadanemu popisu:{description}. Napis mi pouze cislo karty ve formatu:1"
         odpoved = [{
             "type": "text",
             "text": prompt,
         }]
-        for i in range(len(vylozene_karty)):
+        for i in range(len(laid_out_cards)):
             g = {"type": "image_url",
                  "image_url": {
-                     "url": f"data:image/png;base64,{vylozene_karty[i].zakodovany_obrazek}"}}
+                     "url": f"data:image/png;base64,{laid_out_cards[i].encoded_picture}"}}
             odpoved.append(g)
 
         response = openai.chat.completions.create(
@@ -108,9 +108,9 @@ class Hrac(AbstraktHrac):
             n=1,
             temperature= self.teplota
         )
-        return vylozene_karty[int(response.choices[0].message.content) - 1]
-    def skoruj(self, cislo) -> None:
-        self.skore += cislo
+        return laid_out_cards[int(response.choices[0].message.content) - 1]
+    def score_add(self, number) -> None:
+        self.skore += number
 
 
 spravce = SpravceKaret("pokus.json")
@@ -154,7 +154,7 @@ class Hra:
         self.log_button.pack(side=tk.LEFT, padx=2, pady=1)
 
         for i in range(self.pocet_hracu):
-            self.hraci.append(Hrac(self.jmena_hracu[i],povaha=self.povahy[i % len(self.povahy)], teplota=random() + 0.5))
+            self.hraci.append(Hrac(self.jmena_hracu[i], nature=self.povahy[i % len(self.povahy)], temperature=random() + 0.5))
 
         self.zamichej_karty()
         self.rozdej_karty()
@@ -235,7 +235,7 @@ class Hra:
             for card_idx, karta in enumerate(hrac.karty_ruka):
                 x = x_offset + card_idx * 90  # Reduce spacing by decreasing the multiplier
                 y = y_offset
-                if karta.zakodovany_obrazek:
+                if karta.encoded_picture:
                     image = Image.open(karta.path)
                     image = image.resize((80, 120))
                     card_image = ImageTk.PhotoImage(image)
@@ -276,7 +276,7 @@ class Hra:
         for idx, (karta, hrac) in enumerate(self.karty_na_stole):
             x = starting_x + idx * (card_width + 10)  # Include the gap in the calculation
             y = self.canvas.winfo_height() // 2 + y_offset  # Adjust vertical position
-            if karta.zakodovany_obrazek:
+            if karta.encoded_picture:
                 image = Image.open(karta.path)
                 image = image.resize((80, 120))
                 card_image = ImageTk.PhotoImage(image)
@@ -326,7 +326,7 @@ class Hra:
 
         for hrac in self.hraci:
                 # Kazdemu hraci da jednu kartu, (lize si kartu)
-                hrac.seber_kartu(self.karty_v_balicku.pop(0))
+                hrac.take_card(self.karty_v_balicku.pop(0))
 
     def predzobrazeni(self):
         self.canvas.delete('all')
@@ -366,7 +366,7 @@ class Hra:
             for card_idx, karta in enumerate(hrac.karty_ruka):
                 x = x_offset + card_idx * 90  # Adjusted spacing between cards
                 y = y_offset
-                if karta.zakodovany_obrazek:
+                if karta.encoded_picture:
                     image = Image.open(karta.path)
                     image = image.resize((80, 120))
                     card_image = ImageTk.PhotoImage(image)
@@ -394,7 +394,7 @@ class Hra:
         for hrac in self.hraci:
             for i in range(self.pocet_karet_pro_hrace):
                 # Kazdy hrac dostane svoji kartu
-                hrac.seber_kartu(self.karty_v_balicku.pop(0))  # Vezmeme kartu z balicku a dame ji hraci
+                hrac.take_card(self.karty_v_balicku.pop(0))  # Vezmeme kartu z balicku a dame ji hraci
 
                 # Jake karty dostal jaky hrac
                 # print(f"Hráč {hrac.jmeno} dostal kartu {hrac.karty_ruka[-1].key}")
