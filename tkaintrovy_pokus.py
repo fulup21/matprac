@@ -118,7 +118,8 @@ class Hrac(AbstraktHrac):
             temperature= self.teplota
         )
         return vylozene_karty[int(response.choices[0].message.content) - 1]
-    def skoruj(self, cislo) -> None:
+
+    def skoruj(self, cislo:int) -> None:
         self.skore += cislo
 
 
@@ -176,34 +177,41 @@ class Hra:
 
     def tah(self, index_vypravece)->None:
         """provede jeden tah, kdy jeden hrac je vybran vypravecem a ostatni hadaji"""
+        for widget in self.bottom_bar.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.destroy()
+
         if self.debug:
-                    self.karty_na_stole.clear() # ujisti, ze tam nic neni
+            self.karty_na_stole.clear() # ujisti, ze tam nic neni
 
-        vypravec :Hrac = self.hraci[index_vypravece]
-        # vypravec_karta :Karta = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
+            vypravec :Hrac = self.hraci[index_vypravece]
+            # vypravec_karta :Karta = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
 
-        vypravec_karta :Karta = vypravec.karty_ruka[0]
-        
-        popis :str = "sample popis dlouhy text bla bla bla"
-        logging.info(f"Vypravec: {vypravec.jmeno}")
-        logging.info(f"Vybrana karta: {vypravec_karta.key}, Popis: {popis}")
-        
+            vypravec_karta :Karta = vypravec.karty_ruka[0]
+            
+            popis :str = "sample popis dlouhy text bla bla bla"
+            logging.info(f"Vypravec: {vypravec.jmeno}")
+            logging.info(f"Vybrana karta: {vypravec_karta.key}, Popis: {popis}")
+            
 
-        self.karty_na_stole.append((vypravec_karta, vypravec))
-        for hrac in self.hraci:
-            if hrac != vypravec:
-                vybrana_karta = hrac.karty_ruka[0]
-                logging.info(f"Hrac {hrac.jmeno} vybral k popisu {popis} kartu: {vybrana_karta.key} a vylozil ji na stul")
-                self.karty_na_stole.append((vybrana_karta, hrac))
+            self.karty_na_stole.append((vypravec_karta, vypravec))
+            for hrac in self.hraci:
+                if hrac != vypravec:
+                    vybrana_karta = hrac.karty_ruka[0]
+                    logging.info(f"Hrac {hrac.jmeno} vybral k popisu {popis} kartu: {vybrana_karta.key} a vylozil ji na stul")
+                    self.karty_na_stole.append((vybrana_karta, hrac))
 
-        shuffle(self.karty_na_stole)
-        
-        hlasovani:list[tuple[Hrac,Karta]] = []
-        for hrac in self.hraci:
-            if hrac != vypravec:
-                vybrana_karta = self.karty_na_stole[0][0]
-                logging.info(f"Hrac {hrac.jmeno} hlasoval pro kartu: {vybrana_karta.key}")
-                hlasovani.append((hrac, vybrana_karta))
+            shuffle(self.karty_na_stole)
+            
+            hlasovani:list[tuple[Hrac,Karta]] = []
+            for hrac in self.hraci:
+                if hrac != vypravec:
+                    vybrana_karta = self.karty_na_stole[0][0]
+                    logging.info(f"Hrac {hrac.jmeno} hlasoval pro kartu: {vybrana_karta.key}")
+                    hlasovani.append((hrac, vybrana_karta))
+            
+            for hrac in self.hraci:
+                hrac.skoruj(2)
 
 
         if not self.debug:
@@ -257,7 +265,6 @@ class Hra:
                     if karta != vypravec_karta:
                         pro_hlasovali = sum(1 for h in hlasovani if h[1] == karta)
                         hrac.skoruj(pro_hlasovali)  # Hráči, jejichž karty byly vybrány, dostanou body
-
         # Display cards with the selected card highlighted
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
@@ -289,7 +296,7 @@ class Hra:
             self.canvas.create_oval(circle_x1, circle_y1, circle_x2, circle_y2, fill=self.pozadi[idx % len(self.pozadi)], outline='')
 
             # Include player's score in the display
-            description_text = f'{hrac.jmeno} (Score: {hrac.skore})'
+            description_text = f'{hrac.jmeno} (Skóre: {hrac.skore})'
             if hrac == vypravec:
                 description_text += f' - {popis}'
             self.canvas.create_text(x_offset, y_offset - 50, text=description_text, anchor='w', font=('Arial', 16, 'bold'))
@@ -350,7 +357,10 @@ class Hra:
                 if karta == hlasovana_karta:
                     self.canvas.create_text(x + 40, y_offset_text, text=hlasujici_hrac.jmeno, anchor='n', font=('Arial', 10))
                     y_offset_text += 15
-        footer_text = tk.Label(self.bottom_bar, text=f'Probiha kolo cislo {self.pocet_kolo}, vypravec je {vypravec.jmeno}', bg='lightgrey', font=('Arial', 12, 'bold'))
+
+        footer_text = tk.Label(self.bottom_bar,
+                                    text=f'Probíha kolo číslo {self.pocet_kolo}, vypraveč je {vypravec.jmeno}',
+                                    bg='lightgrey', font=('Arial', 12, 'bold'))
         footer_text.pack(side=tk.BOTTOM, pady=10)
         self.canvas.update()
 
@@ -378,6 +388,7 @@ class Hra:
                 hrac.seber_kartu(self.karty_v_balicku.pop(0))
 
     def predzobrazeni(self):
+    
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
         self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text=f"Predzobrazeni: probiha kolo cislo {self.pocet_kolo}", font=("Arial", 24, "bold"))
@@ -410,7 +421,7 @@ class Hra:
             self.canvas.create_oval(circle_x1, circle_y1, circle_x2, circle_y2, fill=self.pozadi[idx % len(self.pozadi)], outline='')
 
             # Include player's score in the display
-            description_text = f'{hrac.jmeno} (Score: {hrac.skore})'
+            description_text = f'{hrac.jmeno} (Skóre: {hrac.skore})'
             self.canvas.create_text(x_offset, y_offset - 50, text=description_text, anchor='w', font=('Arial', 16, 'bold'))
             for card_idx, karta in enumerate(hrac.karty_ruka):
                 x = x_offset + card_idx * 90  # Adjusted spacing between cards
@@ -448,25 +459,23 @@ class Hra:
                 # Jake karty dostal jaky hrac
                 # print(f"Hráč {hrac.jmeno} dostal kartu {hrac.karty_ruka[-1].key}")
 
-
     def play_turn(self):
         # Step 1: Display the initial state with player names and cards
-        for widget in self.bottom_bar.winfo_children():
-            if isinstance(widget, tk.Label):
-                widget.destroy()
-        self.predzobrazeni()
-        log.info("@play_turn - Doslo k prvotnim zobrazeni karet pred kolem")
-        # Step 2: Execute a turn, which includes the call to ChatGPT
-        self.tah(self.index_vypravece)
-        log.info("@play_turn -Doslo k tahu")
-        self.index_vypravece += 1
+        max_score = max(hrac.skore for hrac in self.hraci)
+        if max_score >= 30:
+            self.konec_hry(max_score)
+        else: 
+            self.predzobrazeni()
+            log.info("@play_turn - Doslo k prvotnim zobrazeni karet pred kolem")
+            # Step 2: Execute a turn, which includes the call to ChatGPT
+            self.tah(self.index_vypravece)
+            log.info("@play_turn -Doslo k tahu")
+            self.index_vypravece += 1
 
         if self.index_vypravece >= len(self.hraci):         # jestli je index vypravece >= 4, odehralo se kolo a vypravec je znova ta sama osoba
             self.index_vypravece = 0
             self.pocet_kolo += 1
         
-        
-
     def show_log(self):
         """Show the log window."""
         log_window = tk.Toplevel(self.root)
@@ -523,6 +532,23 @@ class Hra:
         button_frame.pack(fill=tk.X, side=tk.BOTTOM)
         close_button = tk.Button(button_frame, text="Close", command=log_window.destroy)
         close_button.pack(pady=10, padx=5)
+
+    def konec_hry(self,max_score:int):
+        winners = [hrac for hrac in self.hraci if hrac.skore == max_score]
+        winner_names = ', '.join(hrac.jmeno for hrac in winners)
+        if len(winners) > 1:
+            message = f"Konec hry, vyhrali hraci {winner_names} s {max_score} body."
+        else:
+            message = f"Konec hry, vyhral hrac {winner_names} s {max_score} body."
+        self.display_winner_message(message)
+
+    def display_winner_message(self, message):
+        for widget in self.bottom_bar.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.destroy()
+        self.canvas.delete('all')
+        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text=message, font=("Arial", 24), anchor=tk.CENTER)
+        self.play_button.config(state=tk.DISABLED)
 
 if __name__ == "__main__":
     root = tk.Tk()
