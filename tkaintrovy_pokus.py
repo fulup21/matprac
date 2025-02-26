@@ -7,24 +7,20 @@ import tkinter as tk
 from tkinter import Canvas
 from PIL import Image, ImageTk
 import logging
-openai.api_key=mujklic #api klic od openai
+import threading
+openai.api_key=mujklic # OpenAI API key
 
-logging.basicConfig(filename='dixit.log', level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',filemode='w')  # 'w' mod nebo 'a' mod
+logging.basicConfig(filename='dixit.log', level=logging.INFO,format='%(asctime)s - %(levelname)s - %(message)s',filemode='w')  # 'w' mode or 'a' mode
 logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("dixit")
-
-# upravit ui at je prehlednejsi
-# multithreading
-
-
 
 class CardManager:
     dict_of_cards: dict[int,Card]= {}
     def __init__(self, file_json: str):
-        """seznam, kam posleme vsechny karty"""
+        """list where we send all cards"""
 
 
-        with open(file_json, "r", encoding="utf-8") as s: # otevirame json soubor
+        with open(file_json, "r", encoding="utf-8") as s: # opening JSON file
             cards = json.load(s)
             for card_data in cards:
                 key = card_data.get("key")
@@ -35,23 +31,21 @@ class CardManager:
                 self.dict_of_cards[key] = card
 
     def find_card(self, key:int)-> Card:
-        """najde kartu podle klice"""
+        """find a card by key"""
         try: return self.dict_of_cards[key]
         except KeyError:
             raise ValueError(f"Karta s klicem: {key} nebyla nalezena")
 
 class Player(AbstractPlayer):
-    """jednotlivi Chatgpt hraci"""
-
+    """individual ChatGPT players"""
 
     def __init__(self, name:str, nature: str = None, temperature:float = None)->None:
-        """zde se nastavi jak se bude hrac chovat"""
+        """this sets how the player will behave"""
         self.nature = nature
         self.temperature = temperature
         self.name = name
         self.cards_on_hand: list[Card] = []
         self.score = 0
-
 
     def take_card(self, card: Card) -> None:
         self.cards_on_hand.append(card)
@@ -87,7 +81,7 @@ class Player(AbstractPlayer):
 
     def choose_card(self, description:str, laid_out_cards:list[Card])->Card:
 
-        """podiva se na vsechny karty 'na stole' a porovna je se zdanim"""
+        """look at all cards 'on the table' and compare them with the description"""
 
         prompt = f"Na základě zadaných obrázků vyber ten, ktery nejlepe sedi zadanemu popisu:{description}. Napis mi pouze cislo karty ve formatu:1"
         built_message = [{
@@ -122,11 +116,10 @@ class Player(AbstractPlayer):
     def score_add(self, number:int) -> None:
         self.score += number
 
-
 manager = CardManager("pokus.json")
 
 class DixitGame:
-    """Hra s jednim hrqcim kolem"""
+    """Game with one player round"""
     def __init__(self, number_of_players:int, names_of_players:list[str], root:tk.Tk, debug=False):
         self.debug = debug
         self.number_of_players = number_of_players
@@ -136,14 +129,14 @@ class DixitGame:
         self.cards_in_deck: list[Card] = []
         self.discard_pile:list[Card] = []
         self.cards_on_table:list[tuple[Card,Player]] = []
-        self.number_of_cards_per_player: int = 6  # Každý hráč dostane 6 karet
+        self.number_of_cards_per_player: int = 6
         self.round_number:int = 1
         self.index_storyteller:int = 0
         self.backgrounds: list[str] = ['dodger blue', 'IndianRed1', 'slate blue', 'PaleGreen1']
 
 
 
-        log.info("Spusteni aplikace")
+        log.info("Application started")
         
         self.root = root
         self.root.geometry("1920x1200")
@@ -168,198 +161,119 @@ class DixitGame:
 
         self.shuffle_cards()
         self.hand_out_cards()
-        self.canvas.after(100, self.center_text,)
+        self.canvas.after(100, self.center_text,())
 
-    def center_text(self)->None:
+    def center_text(self, *args)->None:
         self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text="Simulace hry Dixit s openai", font=("Arial", 24), anchor=tk.CENTER)
         self.canvas.create_text(self.canvas.winfo_width() // 2, (self.canvas.winfo_height() // 2) + 30, text="Pro spustneni zmacknete tlacitko 'Play', pro zobrazeni logu zmacknete tlacitko 'Log'", font=("Arial", 18), anchor=tk.CENTER)
 
-    def turn(self, storyteller_idx)->None:
-        """provede jeden tah, kdy jeden hrac je vybran vypravecem a ostatni hadaji"""
+    def turn(self, storyteller_idx:int)->None:
+        """perform one turn where one player is selected as the storyteller and others guess"""
         for widget in self.bottom_bar.winfo_children():
             if isinstance(widget, tk.Label):
                 widget.destroy()
+        self.cards_on_table.clear() # make sure there's nothing there
 
         if self.debug:
-            self.cards_on_table.clear() # ujisti, ze tam nic neni
+            self.cards_on_table.clear()  # ujisti, ze tam nic neni
 
-            storyteller :Player = self.players[storyteller_idx]
+            storyteller: Player = self.players[storyteller_idx]
             # vypravec_karta :Card = vypravec.karty_ruka[0]  # vypravec vybere kartu, kterou bude popisovat
 
-            storyteller_card :Card = storyteller.cards_on_hand[0]
-            
-            descripion :str = "sample popis dlouhy text bla bla bla"
+            storyteller_card: Card = storyteller.cards_on_hand[0]
+
+            descripion: str = "sample popis dlouhy text bla bla bla"
             logging.info(f"Vypravec: {storyteller.name}")
             logging.info(f"Vybrana karta: {storyteller_card.key}, Popis: {descripion}")
-            
 
             self.cards_on_table.append((storyteller_card, storyteller))
             for player in self.players:
                 if player != storyteller:
                     chosen_card = player.cards_on_hand[0]
-                    logging.info(f"Hrac {player.name} vybral k popisu {descripion} kartu: {chosen_card.key} a vylozil ji na stul")
+                    logging.info(
+                        f"Hrac {player.name} vybral k popisu {descripion} kartu: {chosen_card.key} a vylozil ji na stul")
                     self.cards_on_table.append((chosen_card, player))
 
             shuffle(self.cards_on_table)
-            
-            voting:list[tuple[Player,Card]] = []
+
+            voting: list[tuple[Player, Card]] = []
             for player in self.players:
                 if player != storyteller:
                     chosen_card = self.cards_on_table[0][0]
                     logging.info(f"Hrac {player.name} hlasoval pro kartu: {chosen_card.key}")
                     voting.append((player, chosen_card))
-            
+
             for player in self.players:
                 player.score_add(2)
-
-
         else:
-            self.cards_on_table.clear() # ujisti, ze tam nic neni
-
-            storyteller :Player = self.players[storyteller_idx]
-            storyteller_card :Card = storyteller.cards_on_hand[0]  # vypravec vybere kartu, kterou bude popisovat
-
-
-            descripion :str = storyteller.make_description(storyteller_card)
-            
-            log.info(f"Vypravec: {storyteller.name}")
-            log.info(f"Vybrana karta: {storyteller_card.key}, Popis: {descripion}")
-            self.cards_on_table.append((storyteller_card, storyteller))
-            for player in self.players:
+            def choose_card_thread(player):
                 if player != storyteller:
                     chosen_card = player.choose_card(descripion, player.cards_on_hand)
                     self.cards_on_table.append((chosen_card, player))
                     log.info(f"Hrac {player.name} vybral k popisu {descripion} kartu: {chosen_card.key} a vylozil ji na stul")
 
+            threads = []
+            storyteller :Player = self.players[storyteller_idx]
+            storyteller_card :Card = storyteller.cards_on_hand[0]  # storyteller chooses a card
+
+            descripion :str = storyteller.make_description(storyteller_card)
+
+            log.info(f"Vypravec: {storyteller.name}")
+            log.info(f"Vybrana karta: {storyteller_card.key}, Popis: {descripion}")
+            self.cards_on_table.append((storyteller_card, storyteller))
+
+            for player in self.players:
+                thread = threading.Thread(target=choose_card_thread, args=(player,))
+                threads.append(thread)
+                thread.start()
+
+            for thread in threads:
+                thread.join()
+
             shuffle(self.cards_on_table)
 
-            
-            # Hraci, krome vypravece, hlasuji
-            voting:list[tuple[Player,Card]] = []
-            for player in self.players:
+            # Players except storyteller vote
+            def vote_thread(player):
                 if player != storyteller:
                     choices = [k[0] for k in self.cards_on_table if k[1] != player]
                     chosen_card = player.choose_card(descripion, choices)
                     voting.append((player, chosen_card))
                     log.info(f"Hrac {player.name} hlasoval pro kartu: {chosen_card.key}")
 
+            voting:list[tuple[Player,Card]] = []
+            vote_threads = []
+            for player in self.players:
+                thread = threading.Thread(target=vote_thread, args=(player,))
+                vote_threads.append(thread)
+                thread.start()
 
-            # # Výpočet bodů
+            for thread in vote_threads:
+                thread.join()
+
+            # score calculation
             number_of_correct_votes = sum(1 for h in voting if h[1] == storyteller_card)
 
             if number_of_correct_votes == 0 or number_of_correct_votes == len(self.players) - 1:
-                # Pokud všichni nebo nikdo neuhodl správně
+                # If everyone or no one guessed correctly
                 for player in self.players:
                     if player != storyteller:
-                        player.score_add(2)  # Přidej body nesprávně hádajícím hráčům
+                        player.score_add(2)  # Add points to the wrong guessers
             else:
-                storyteller.score_add(3)  # Vypravěč dostává body
+                storyteller.score_add(3)  # storyteller gets points
                 for player, chosen_card in voting:
                     if chosen_card == storyteller_card:
-                        player.score_add(3)  # Hráči, kteří uhádli, dostanou body
+                        player.score_add(3)  # player gets points for choosing the right card
 
-                for card, player in self.cards_on_table:
-                    if card != storyteller_card:
-                        for_voted = sum(1 for h in voting if h[1] == card)
-                        player.score_add(for_voted)  # Hráči, jejichž karty byly vybrány, dostanou body
+                    for card, player in self.cards_on_table:
+                        if card != storyteller_card:
+                            for_voted = sum(1 for h in voting if h[1] == card)
+                            player.score_add(for_voted)  # player gets points for voting for the card
+
         # Display cards with the selected card highlighted
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        for idx, player in enumerate(self.players):
-            col = idx % 2
-            row = idx // 2
-            x_offset = 50 + col * 600
-            if col == 0:
-                x_offset -= 20  # Move left column players to the left
-            else:
-                x_offset += 70  # Move right column players to the right
-
-            y_offset = 80 + row * 450  # Move cards closer to the bottom
-
-            # Draw a gray rectangle behind the player's name and cards
-            rect_x1 = x_offset - 10
-            rect_y1 = y_offset - 10
-            rect_x2 = x_offset + 540  # Increase width by 100 pixels
-            rect_y2 = y_offset + 130
-
-            self.canvas.create_rectangle(rect_x1, rect_y1, rect_x2, rect_y2, fill='lightgrey', outline='')
-
-            # Draw a colored dot in front of the player's name
-            circle_x1 = x_offset - 20
-            circle_y1 = y_offset - 60
-            circle_y2 = y_offset - 45
-            circle_x2 = x_offset - 5  # Define circle_x2 to be slightly to the right of circle_x1
-            self.canvas.create_oval(circle_x1, circle_y1, circle_x2, circle_y2, fill=self.backgrounds[idx % len(self.backgrounds)], outline='')
-
-            # Include player's score in the display
-            description_text = f'{player.name} (Skóre: {player.score})'
-            if player == storyteller:
-                description_text += f' - {descripion}'
-            self.canvas.create_text(x_offset, y_offset - 50, text=description_text, anchor='w', font=('Arial', 16, 'bold'))
-            for card_idx, card in enumerate(player.cards_on_hand):
-                x = x_offset + card_idx * 90  # Reduce spacing by decreasing the multiplier
-                y = y_offset
-                if card.encoded_picture:
-                    image = Image.open(card.path)
-                    image = image.resize((80, 120))
-                    card_image = ImageTk.PhotoImage(image)
-                    self.canvas.create_image(x + 40, y + 60, image=card_image)
-                    if card == storyteller_card:
-                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline=self.backgrounds[idx % len(self.backgrounds)], width=5)
-                    elif any(card == k[0] for k in self.cards_on_table):
-                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline=self.backgrounds[idx % len(self.backgrounds)], width=5)
-                    if not hasattr(self, 'card_images'):
-                        self.card_images = []
-                    self.card_images.append(card_image)
-                else:
-                    self.canvas.create_rectangle(x, y, x + 80, y + 120, fill='white')
-                    self.canvas.create_text(x + 40, y + 60, text=str(card.key))
-                    if card == storyteller_card:
-                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='red', width=3)
-                    elif any(card == k[0] for k in self.cards_on_table):
-                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline='yellow', width=3)
-         
-
-        """Blok karet urprostred"""
-
-        # Calculate the starting position to center the cards on the canvas
-        canvas_width = self.canvas.winfo_width()
-        num_cards = len(self.cards_on_table)
-        card_width = 80  # Assuming each card is 80 pixels wide
-        starting_x = (canvas_width - (num_cards * card_width + (num_cards - 1) * 10)) // 2
-
-        # Display the cards side by side with a gap and outline
-        for idx, (card, player) in enumerate(self.cards_on_table):
-            x = starting_x + idx * (card_width + 10)  # Include the gap in the calculation
-            y = self.canvas.winfo_height() // 2   # Adjust vertical position
-
-            image = Image.open(card.path)
-            image = image.resize((80, 120))
-            card_image = ImageTk.PhotoImage(image)
-            # Draw outline with the player's color
-            player_index = self.players.index(player)
-            outline_color = self.backgrounds[player_index % len(self.backgrounds)]
-            self.canvas.create_rectangle(x, y-80, x + 80, y + 60, fill = outline_color, outline=outline_color, width=3)
-            self.canvas.create_image(x + 40, y, image=card_image)
-
-            if not hasattr(self, 'card_images'):
-                self.card_images = []
-            self.card_images.append(card_image)
-            self.canvas.create_text(x + 40, y - 60, text=player.name, anchor='s', font=('Arial', 10, 'bold'))
-
-            # Display the names of players who voted for the card below the card
-            y_offset_text = y + 70  # Position text below the card
-            for voting_player, voted_card in voting:
-                if card == voted_card:
-                    self.canvas.create_text(x + 40, y_offset_text, text=voting_player.name, anchor='n', font=('Arial', 10))
-                    y_offset_text += 15
-
-        footer_text = tk.Label(self.bottom_bar,
-                               text=f'Probíha kolo číslo {self.round_number}, vypraveč je {storyteller.name}',
-                               bg='lightgrey', font=('Arial', 12, 'bold'))
-        footer_text.pack(side=tk.BOTTOM, pady=10)
-        self.canvas.update()
+        self.display_cards(storyteller,storyteller_card,descripion,voting)
 
         # Remove selected cards from players' hands after updating the canvas
         for player in self.players:
@@ -370,7 +284,6 @@ class DixitGame:
 
         # Remove the vypravec_karta from the hand after updating the canvas
         storyteller.cards_on_hand.remove(storyteller_card)
-
 
         self.discard_pile.extend([card for card, player in self.cards_on_table])
         #da kartu ze stolu do odh. hromadku
@@ -385,10 +298,12 @@ class DixitGame:
                 player.take_card(self.cards_in_deck.pop(0))
 
     def preview(self):
-    
+        for widget in self.bottom_bar.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.destroy()
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
-        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text=f"Predzobrazeni: probiha kolo cislo {self.round_number}", font=("Arial", 24, "bold"))
+        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text=f"Předzobrazení: vypočítává se kolo číslo  {self.round_number}", font=("Arial", 24, "bold"))
 
         self.card_images = []  # Ensure this list is initialized to store image references
         for idx, player in enumerate(self.players):
@@ -451,10 +366,7 @@ class DixitGame:
         for player in self.players:
             for i in range(self.number_of_cards_per_player):
                 # Kazdy hrac dostane svoji kartu
-                player.take_card(self.cards_in_deck.pop(0))  # Vezmeme kartu z balicku a dame ji hraci
-
-                # Jake karty dostal jaky hrac
-                # print(f"Hráč {hrac.jmeno} dostal kartu {hrac.karty_ruka[-1].key}")
+                player.take_card(self.cards_in_deck.pop(0))  # Take a card from the deck and give it to the player
 
     def play_turn(self):
         # Step 1: Display the initial state with player names and cards
@@ -466,12 +378,84 @@ class DixitGame:
             log.info("@play_turn - Doslo k prvotnim zobrazeni karet pred kolem")
             # Step 2: Execute a turn, which includes the call to ChatGPT
             self.turn(self.index_storyteller)
-            log.info("@play_turn -Doslo k tahu")
+            log.info("@play_turn - Doslo k tahu")
             self.index_storyteller += 1
 
-        if self.index_storyteller >= len(self.players):         # jestli je index vypravece >= 4, odehralo se kolo a vypravec je znova ta sama osoba
-            self.index_storyteller = 0
+        if self.index_storyteller >= len(self.players):   # if the index_storyteller is greater than or equal to the number of players, 
+            self.index_storyteller = 0                     # reset it and increase the round number
             self.round_number += 1
+
+    def display_cards(self, storyteller, storyteller_card, descripion, voting):
+        self.canvas.delete('all')
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        for idx, player in enumerate(self.players):
+            col = idx % 2
+            row = idx // 2
+            x_offset = 50 + col * 600
+            x_offset += -20 if col == 0 else 70
+            y_offset = 80 + row * 450
+
+            self.canvas.create_rectangle(x_offset - 10, y_offset - 10, x_offset + 540, y_offset + 130, fill='lightgrey',
+                                         outline='')
+            self.canvas.create_oval(x_offset - 20, y_offset - 60, x_offset - 5, y_offset - 45,
+                                    fill=self.backgrounds[idx % len(self.backgrounds)], outline='')
+
+            description_text = f'{player.name} (Skóre: {player.score})'
+            if player == storyteller:
+                description_text += f' - {descripion}'
+            self.canvas.create_text(x_offset, y_offset - 50, text=description_text, anchor='w',
+                                    font=('Arial', 16, 'bold'))
+
+            for card_idx, card in enumerate(player.cards_on_hand):
+                x, y = x_offset + card_idx * 90, y_offset
+                if card.encoded_picture:
+                    image = Image.open(card.path).resize((80, 120))
+                    card_image = ImageTk.PhotoImage(image)
+                    self.canvas.create_image(x + 40, y + 60, image=card_image)
+                    outline_color = self.backgrounds[idx % len(self.backgrounds)] if card == storyteller_card or any(
+                        card == k[0] for k in self.cards_on_table) else None
+                    if outline_color:
+                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline=outline_color, width=5)
+                    if not hasattr(self, 'card_images'):
+                        self.card_images = []
+                    self.card_images.append(card_image)
+                else:
+                    self.canvas.create_rectangle(x, y, x + 80, y + 120, fill='white')
+                    self.canvas.create_text(x + 40, y + 60, text=str(card.key))
+                    outline_color = 'red' if card == storyteller_card else 'yellow' if any(
+                        card == k[0] for k in self.cards_on_table) else None
+                    if outline_color:
+                        self.canvas.create_rectangle(x, y, x + 80, y + 120, outline=outline_color, width=3)
+
+        canvas_width = self.canvas.winfo_width()
+        num_cards = len(self.cards_on_table)
+        starting_x = (canvas_width - (num_cards * 80 + (num_cards - 1) * 10)) // 2
+
+        for idx, (card, player) in enumerate(self.cards_on_table):
+            x, y = starting_x + idx * (80 + 10), self.canvas.winfo_height() // 2
+            image = Image.open(card.path).resize((80, 120))
+            card_image = ImageTk.PhotoImage(image)
+            outline_color = self.backgrounds[self.players.index(player) % len(self.backgrounds)]
+            self.canvas.create_rectangle(x, y - 80, x + 80, y + 60, fill=outline_color, outline=outline_color, width=3)
+            self.canvas.create_image(x + 40, y, image=card_image)
+            if not hasattr(self, 'card_images'):
+                self.card_images = []
+            self.card_images.append(card_image)
+            self.canvas.create_text(x + 40, y - 60, text=player.name, anchor='s', font=('Arial', 10, 'bold'))
+
+            y_offset_text = y + 70
+            for voting_player, voted_card in voting:
+                if card == voted_card:
+                    self.canvas.create_text(x + 40, y_offset_text, text=voting_player.name, anchor='n',
+                                            font=('Arial', 10))
+                    y_offset_text += 15
+
+        footer_text = tk.Label(self.bottom_bar,
+                               text=f'Probíha kolo číslo {self.round_number}, vypraveč je {storyteller.name}',
+                               bg='lightgrey', font=('Arial', 12, 'bold'))
+        footer_text.pack(side=tk.BOTTOM, pady=10)
+        self.canvas.update()
         
     def show_log(self):
         """Show the log window."""
