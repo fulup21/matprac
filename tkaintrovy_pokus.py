@@ -273,7 +273,7 @@ class DixitGame:
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        self.display_cards(storyteller,storyteller_card,descripion,voting)
+        self.update_ui(storyteller, storyteller_card, descripion, voting)
 
         # Remove selected cards from players' hands after updating the canvas
         for player in self.players:
@@ -385,7 +385,7 @@ class DixitGame:
             self.index_storyteller = 0                     # reset it and increase the round number
             self.round_number += 1
 
-    def display_cards(self, storyteller, storyteller_card, descripion, voting):
+    def update_ui(self, storyteller:Player, storyteller_card:Card, descripion:str, voting:list[tuple[Player,Card]]):
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
