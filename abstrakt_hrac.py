@@ -4,41 +4,41 @@ from pydantic import BaseModel
 
 
 class Card(BaseModel):
-    """jedna karta s obrazkem"""
+    """card with image, path, checksum for verification and encoded picture"""
     key:int
     path:str
+    checksum: str
     encoded_picture: str
 
-
 class AbstractPlayer(ABC):
-    """jednotlivi Chatgpt hraci"""
-    cards_on_hand:list[Card]=[]
-    score: int = 0
-
+    """Players"""
+    
     @abstractmethod
     def __init__(self, name:str, nature: str | None, temperature: float | None)->None:
-        """zde se nastavi jak se bude hrac chovat"""
+        """set how the player will behave"""
         self.nature = nature
         self.temperature = temperature
         self.name = name
+        self.cards_on_hand:list[Card]=[]
+        self.score: int = 0
         ...
 
     @abstractmethod
     def take_card(self, card:Card) -> None:
-        """prirad kartu do ruky"""
+        """assign card to hand"""
         ...
 
     @abstractmethod
     def make_description(self, card:Card)->str:
-        """udela popis pro jednu kartu"""
+        """make description for one card"""
         ...
 
     @abstractmethod
     def choose_card(self, description:str, laid_out_cards:list[Card])->Card:
-        """podiva se na vsechny karty 'na stole' a porovna je se zdanim"""
+        """look at all cards on the table and choose which one best fits the description"""
         ...
 
     @abstractmethod
     def score_add(self, number:int) -> None:
-        """prirad kartu do ruky"""
+        """add score"""
         ...
