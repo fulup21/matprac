@@ -9,6 +9,9 @@ from tkinter import Canvas
 from PIL import Image, ImageTk
 import logging
 import threading
+import base64
+import hashlib
+
 openai.api_key=mujklic # OpenAI API key
 
 ### kontrolni soucet = checksum md5
@@ -30,10 +33,17 @@ class CardManager:
             with open(self.json_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             # Validate contents
-            if not isinstance(data, list) or not all('key' in item and 'path' in item and 'encoded_picture' in item for item in data):
+            if not isinstance(data, list) or not all('key' in item and 'path' in item and 'checksum' in item and 'encoded_picture' in item for item in data):
                 raise ValueError("JSON content is invalid")
+            # Verify checksums
+            for item in data:
+                decoded_data = base64.b64decode(item['encoded_picture'].encode('utf-8'))
+                calculated_checksum = hashlib.md5(decoded_data).hexdigest()
+                if calculated_checksum != item['checksum']:
+                    raise ValueError(f"Checksum verification failed for card with key {item['key']}")
+
             self.dict_of_cards = {item['key']: Card(**item) for item in data}
-            log.info(f"Loaded cards from '{self.json_file}' successfully.")
+            log.info(f"Karty byly uspesne nacteny z '{self.json_file}'.")
         except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
             log.info(f"Error with JSON file '{self.json_file}': {e}. Regenerating...")
             process_images_to_json(self.input_directory, self.json_file)
@@ -61,13 +71,13 @@ class Player(AbstractPlayer):
 
     def make_description(self, card:Card)->str:
         prompt = """Na základě zadaného obrázku vytvoř abstraktní popis, neboli pojem 
-        vystihující atmosféru a koncept obrázku, vyhni se přímému popisu detailů.
-        Vypiš mi pouze tento pojem a to ve formatu:'pojem'"""
+        vystihující atmosféru a koncept obrázku, vyhni se přímému popisu detailů. Pojem nesmí být delší než 30 znaků.
+        Vypiš mi pouze tento pojem a to ve formátu:'pojem'"""
         response = openai.chat.completions.create(
           model="gpt-4o-mini",
           messages=[
             {
-             "role": "developer",
+             "role": "user",
              "content": f" jsi asistent, který odpovídá na dotazy v roli {self.nature}, tvoje role by se mela odrazit v tom jak odpovidas"
             },
             {
@@ -84,7 +94,7 @@ class Player(AbstractPlayer):
               ],
             }
           ],
-          max_tokens=100, n=1, temperature= self.temperature
+          max_tokens=75, n=1, temperature= self.temperature
         )
         return response.choices[0].message.content
 
@@ -135,8 +145,6 @@ class DixitGame:
         self.names_of_players = names_of_players
         self.players: list[Player]= []
         self.natures = natures
-        #self.natures: list[str] = ["umíš pouze jednoslabičná slova", "používáš germanismy", "mluvíš pouze slangem", "hlupák"]
-        #self.natures: list[str] = ["intelektuál", "farmář", "primitiv", "učitelka mateřské školky"]
         self.cards_in_deck: list[Card] = []
         self.discard_pile:list[Card] = []
         self.cards_on_table:list[tuple[Card,Player]] = []
@@ -145,8 +153,6 @@ class DixitGame:
         self.index_storyteller:int = 0
         self.backgrounds: list[str] = ['dodger blue', 'IndianRed1', 'slate blue', 'PaleGreen1']
         self.card_images:list[ImageTk]=[]
-
-
 
         log.info("Zacatek aplikace")
         
@@ -162,8 +168,10 @@ class DixitGame:
         self.bottom_bar = tk.Frame(self.root, height=50, bg='lightgrey')
         self.bottom_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
-        self.play_button = tk.Button(self.bottom_bar, text='Play', command=self.play_turn)
-        self.play_button.pack(side=tk.RIGHT, padx=10, pady=10)
+        self.start_game_button = tk.Button(self.canvas, text='Začít hru', font=("Arial", 60), command=self.play_turn)
+        self.start_game_button.place(relx=0.5, rely=0.7, anchor=tk.CENTER)
+        
+        self.play_button = tk.Button(self.bottom_bar, text='Zahraj další tah', command=self.play_turn)
         
         self.log_button = tk.Button(self.bottom_bar, text="Log", command=self.show_log)
         self.log_button.pack(side=tk.LEFT, padx=2, pady=1)
@@ -179,8 +187,8 @@ class DixitGame:
         self.canvas.after(100, self.center_text,())
 
     def center_text(self, *args)->None:
-        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text="Simulace hry Dixit s openai", font=("Arial", 24), anchor=tk.CENTER)
-        self.canvas.create_text(self.canvas.winfo_width() // 2, (self.canvas.winfo_height() // 2) + 30, text="Pro spustneni zmacknete tlacitko 'Play', pro zobrazeni logu zmacknete tlacitko 'Log'", font=("Arial", 18), anchor=tk.CENTER)
+        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2 - 200, text="Simulace hry Dixit s openai", font=("Arial", 60), anchor=tk.CENTER)
+        self.canvas.create_text(self.canvas.winfo_width() // 2, (self.canvas.winfo_height() // 2) - 130, text="Pro spustení zmáčkněte tlačítko 'Začít hru', pro zobrazení logu zmacknete tlačítko 'Log'", font=("Arial", 18), anchor=tk.CENTER)
 
     def turn(self, storyteller_idx:int)->None:
         """perform one turn where one player is selected as the storyteller and others guess"""
@@ -188,6 +196,7 @@ class DixitGame:
             if isinstance(widget, tk.Label):
                 widget.destroy()
         self.cards_on_table.clear() # make sure there's nothing there
+        self.play_button.pack(side=tk.RIGHT, padx=10, pady=10)
 
         if self.debug:
             storyteller: Player = self.players[storyteller_idx]
@@ -256,7 +265,7 @@ class DixitGame:
         #show the updated UI
         self.update_ui(storyteller, storyteller_card, description, voting)
         #remove cards from players' hands, clear cards on the table and give a new card to the players
-        self.prepare_next_round(storyteller, storyteller_card)
+        self.prepare_next_round()
 
     def choose_card_thread(self,player:Player,storyteller:Player,description:str):
                 if player != storyteller:
@@ -271,19 +280,15 @@ class DixitGame:
                     voting.append((player, chosen_card))
                     log.info(f"Hrac {player.name} hlasoval pro kartu: {chosen_card.key}")
         
-    def prepare_next_round(self,storyteller:Player,storyteller_card:Card):
+    def prepare_next_round(self):
         # Remove selected cards from players' hands after updating the canvas
         for player in self.players:
-            if player != storyteller:
-                for chosen_card, _ in self.cards_on_table:
-                    if chosen_card in player.cards_on_hand:
-                        player.cards_on_hand.remove(chosen_card)
-
-        # Remove the vypravec_karta from the hand after updating the canvas
-        storyteller.cards_on_hand.remove(storyteller_card)
+            for chosen_card, _ in self.cards_on_table:
+                if chosen_card in player.cards_on_hand:
+                    player.cards_on_hand.remove(chosen_card)
 
         self.discard_pile.extend([card for card, player in self.cards_on_table])
-        #da kartu ze stolu do odh. hromadku
+        #adds the discarded cards to the discard pile
         self.cards_on_table.clear()
 
         if len(self.cards_in_deck) < self.number_of_players * self.number_of_cards_per_player: #jestli neni dost karet,dopln
@@ -295,32 +300,33 @@ class DixitGame:
                 player.take_card(self.cards_in_deck.pop(0))
 
     def calculate_scores(self, voting: list[tuple[Player, Card]], storyteller: Player, storyteller_card: Card) -> None:
-        # Calculate the number of correct votes for the storyteller's card
-        number_of_correct_votes = sum(1 for player, card in voting if card == storyteller_card)
+                    # score calculation
+            number_of_correct_votes = sum(1 for h in voting if h[1] == storyteller_card)
 
-        # Score calculation based on the number of correct votes
-        if number_of_correct_votes == 0 or number_of_correct_votes == len(self.players) - 1:
-            # If everyone or no one guessed correctly
-            for player in self.players:
-                if player != storyteller:
-                    player.score_add(2)  # Add points to the wrong guessers
-        else:
-            storyteller.score_add(3)  # storyteller gets points
-            for player, chosen_card in voting:
-                if chosen_card == storyteller_card:
-                    player.score_add(3)  # player gets points for choosing the right card
-                for card, owner in self.cards_on_table:
-                    if card != storyteller_card:
-                        for_voted = sum(1 for player, card in voting if card == card)
-                        owner.score_add(for_voted)  # player gets points for voting for the card
+            if number_of_correct_votes == 0 or number_of_correct_votes == len(self.players) - 1:
+                # If everyone or no one guessed correctly
+                for player in self.players:
+                    if player != storyteller:
+                        player.score_add(2)  # Add points to the wrong guessers
+            else:
+                storyteller.score_add(3)  # storyteller gets points
+                for player, chosen_card in voting:
+                    if chosen_card == storyteller_card:
+                        player.score_add(3)  # player gets points for choosing the right card
+
+            for card, player in self.cards_on_table:
+                if card != storyteller_card:
+                    for_voted = sum(1 for h in voting if h[1] == card)
+                    player.score_add(for_voted)  # player gets points for voting for the card
 
     def preview(self):
+        self.start_game_button.destroy()
         for widget in self.bottom_bar.winfo_children():
             if isinstance(widget, tk.Label):
                 widget.destroy()
         self.canvas.delete('all')
         self.canvas.pack(fill=tk.BOTH, expand=True)
-        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text=f"Předzobrazení: vypočítává se kolo číslo  {self.round_number}", font=("Arial", 24, "bold"))
+        self.canvas.create_text(self.canvas.winfo_width() // 2, self.canvas.winfo_height() // 2, text=f"Vypočítává se tah hráče {self.players[self.index_storyteller].name}", font=("Arial", 24, "bold"))
         footer_text = tk.Label(self.bottom_bar,
                                text=f'Probíha kolo číslo {self.round_number}, vypraveč je {self.players[self.index_storyteller].name}',
                                bg='lightgrey', font=('Arial', 12, 'bold'))
@@ -539,9 +545,9 @@ class DixitGame:
         winners = [hrac for hrac in self.players if hrac.score == max_score]
         winner_names = ', '.join(hrac.name for hrac in winners)
         if len(winners) > 1:
-            message = f"Konec hry, vyhrali hraci {winner_names} s {max_score} body."
+            message = f"Konec hry, vyhráli hráči {winner_names} s {max_score} body."
         else:
-            message = f"Konec hry, vyhral hrac {winner_names} s {max_score} body."
+            message = f"Konec hry, vyhrál hráč {winner_names} s {max_score} body."
         self.display_winner_message(message)
 
     def display_winner_message(self, message):
@@ -555,6 +561,6 @@ class DixitGame:
 if __name__ == "__main__":
     root = tk.Tk()
     jmena_hracu=  ["Petr", "Jana", "Josef", "Pavel"]
-    povahy_hracu = ["používáš pouze slova začínající na A", "používáš pouze slova začínající na B","používáš pouze slova začínající na C", "používáš pouze slova začínající na D"]
+    povahy_hracu = ["odpovídáš jako voják", "odpovídáš jako tří leté dítě","mluvíš pozpátku", "si slovák, odpovídej slovensky"]
     game = DixitGame( jmena_hracu, povahy_hracu, root, debug=False)
     root.mainloop()
